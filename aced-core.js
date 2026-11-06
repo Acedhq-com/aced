@@ -135,19 +135,24 @@
 
   /* ---------- review / spaced repetition (Leitner-lite, keyed by module+question) ----------
      Each answered question gets a "box" 0..5. Correct -> box+1, miss -> box=0.
-     A question is "due" if missed more than mastered, or box 0/1. The review
-     queue resurfaces the actual missed questions so a wrong answer becomes a
-     second chance to learn, not just a scoring penalty. */
+     Scheduled questions return when due, independently of weakness. Legacy
+     records without a schedule retain weakness-only eligibility. */
   /* ---------- review-key migration: stem-hash keys -> canonical q.id ----------
      This intentionally runs once per loaded question set, not once globally. A global
      "done" flag caused the first pack opened to block migration for every other pack.
      The operation is naturally idempotent because a migrated legacy key is deleted. */
   var REVIEW_ID_MIGRATION_KEY = "reviewCanonicalIdsV1";
+  function validScheduleNumber(value) { return typeof value === "number" && isFinite(value) && value >= 0; }
+  function validReviewSchedule(entry) {
+    return validScheduleNumber(entry.dueAt) && entry.dueAt > 0 &&
+      (entry.intervalDays === undefined || validScheduleNumber(entry.intervalDays)) &&
+      (entry.lastReviewedAt === undefined || validScheduleNumber(entry.lastReviewedAt));
+  }
   function mergeReviewEntries(a, b) {
     a = a || {}; b = b || {};
     var aLast = Number(a.last || 0), bLast = Number(b.last || 0);
     var latest = bLast > aLast ? b : a;
-    return {
+    var merged = {
       seen: Math.max(Number(a.seen || 0), Number(b.seen || 0)),
       miss: Math.max(Number(a.miss || 0), Number(b.miss || 0)),
       ok: Math.max(Number(a.ok || 0), Number(b.ok || 0)),
@@ -155,6 +160,16 @@
       last: Math.max(aLast, bLast),
       src: latest.src || a.src || b.src || null
     };
+    var other = latest === a ? b : a, schedule = latest;
+    // Only an absent/zero legacy schedule may fall back. Keep malformed winning
+    // values intact so migration cannot turn them into immediately due legacy cards.
+    if ((latest.dueAt === undefined || latest.dueAt === 0) && validReviewSchedule(other)) schedule = other;
+    ["dueAt", "intervalDays", "lastReviewedAt"].forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(schedule, key)) merged[key] = schedule[key];
+    });
+    var aLapses = validScheduleNumber(a.lapses), bLapses = validScheduleNumber(b.lapses);
+    if (aLapses || bLapses) merged.lapses = Math.max(aLapses ? a.lapses : 0, bLapses ? b.lapses : 0);
+    return merged;
   }
   function migrateReviewIds(allQs) {
     if (!Array.isArray(allQs) || !allQs.length) { return { migrated: 0, skipped: 0, reason: "no-questions" }; }
@@ -176,9 +191,13 @@
   // Days until a card is due again, by Leitner box (0 = same session).
   var BOX_INTERVALS = [0, 1, 3, 7, 14, 30];
   function _weak(e) { return (e.miss > e.ok) || (e.miss > 0 && e.box <= 1); }
-  // A card is "due for review" only when it is both weak AND its scheduled time has arrived.
-  // Records created before scheduling existed have no dueAt, so they count as due immediately.
-  function _dueForReview(e, now) { return !!e && _weak(e) && (!e.dueAt || e.dueAt <= now); }
+  // Positive numeric schedules are independent of weakness. Only legacy missing/zero
+  // dates retain weakness-only eligibility; malformed dates are held, not coerced.
+  function _dueForReview(e, now) {
+    if (!e) return false;
+    if (e.dueAt === undefined || e.dueAt === 0) return _weak(e);
+    return validScheduleNumber(e.dueAt) && e.dueAt > 0 && e.dueAt <= now;
+  }
   var review = {
     migrateIds: migrateReviewIds,
     record: function (q, correct) {
@@ -198,8 +217,8 @@
     // scheduling info for the after-run summary ("returns in N days")
     schedule: function (q) { var e = store.get("review", {})[qKey(q)]; if (!e) return null; return { box: e.box || 0, intervalDays: e.intervalDays || 0, dueAt: e.dueAt || 0, lapses: e.lapses || 0 }; },
     isWeak: function (q) { var e = store.get("review", {})[qKey(q)]; return e ? _weak(e) : false; },
-    /* return up to n questions from allQs that the player has missed/not mastered,
-       hardest first (most misses, lowest box). */
+    /* return up to n due questions from allQs, ranked by the existing
+       misses/box/overdue arithmetic. */
     queue: function (allQs, n) {
       n = n || 10;
       var r = store.get("review", {});

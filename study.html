@@ -900,7 +900,7 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     });
     const topics=[]; norm.forEach(q=>{ if(topics.indexOf(q.source)<0)topics.push(q.source); });
     if(!topics.length)topics.push('General');
-    const modules={}; topics.forEach(t=>{ modules[t]=t; });
+    const modules=Object.create(null); topics.forEach(t=>{ modules[t]=t; });
     const SUITS=[{k:'BLUE',label:'Blue',color:'#5cffea'},{k:'GREEN',label:'Green',color:'#7dff9e'},{k:'GOLD',label:'Gold',color:'#ffd23f'},{k:'PINK',label:'Pink',color:'#ff5cb8'}];
     const elements={}; SUITS.forEach(s=>{ elements[s.k]={label:s.label,color:s.color}; });
     const D=Math.max(28,Math.min(52,topics.length*4));
@@ -1108,6 +1108,9 @@ const PACK=window.ACED_PACK;
    Prevents (a) stored XSS from community/AI-generated packs, and (b) silent breakage when real
    textbook text contains <, >, &, ", or '. */
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+// Authored topics are opaque own keys, including "__proto__" and "constructor".
+function ownValue(o,k,fallback){return Object.prototype.hasOwnProperty.call(o,k)?o[k]:fallback;}
+function setOwn(o,k,v){Object.defineProperty(o,k,{value:v,writable:true,enumerable:true,configurable:true});}
 if(!PACK){
   document.body.innerHTML='<div style="color:#ff5238;padding:40px;font-family:VT323,monospace;background:#000;height:100vh;font-size:22px">No pack loaded. Pick one from the <a style="color:#5cffea" href="library.html">library</a>.</div>';
   throw new Error('No pack');
@@ -1204,7 +1207,7 @@ const ELEMENTS={S:{label:'Spades',color:'#c9cede'},H:{label:'Hearts',color:'#ff5
 const ELKEYS=Object.keys(ELEMENTS);
 const STARTER_UNLOCKS=(CORE_JK.starterUnlocks||[]).concat(PACK.starterUnlocks||[]);
 const CODEX_HINT=Object.assign({},CORE_JK.codexHints||{},PACK.codexHints||{});
-const MODLABEL=PACK.modules||{};
+const MODLABEL=Object.assign(Object.create(null),PACK.modules||{});
 // v13.1: every user-facing label derives from the loaded pack, so AUD/BAR/REG never say "FAR".
 // Community packs (importer.html) and shared decks carry no `section`, so nothing may assume one:
 //   SECTION      -> "FAR" | "AUD" | "BAR" | "REG", or "" when the pack is not a formal exam section
@@ -1304,8 +1307,8 @@ let BEST_SCORE=ACED_STORE.get("bestScore",0);
 let BEST_ANTE=ACED_STORE.get("bestAnte",0);
 let LAST_DAILY_DATE=ACED_STORE.get("lastDailyDate","");
 window._ACED_STATE={mastery:MASTERY,store:ACED_STORE};
-function masteryPct(k){return Math.min(100,Math.round((MASTERY[k]||0)*2));}
-function addMastery(k,delta){if(!k)return;MASTERY[k]=(MASTERY[k]||0)+delta;ACED_STORE.set("mastery",MASTERY);persistMastery(k,delta);renderMastery();renderReadiness();}
+function masteryPct(k){return Math.min(100,Math.round((ownValue(MASTERY,k,0)||0)*2));}
+function addMastery(k,delta){if(!k)return;setOwn(MASTERY,k,(ownValue(MASTERY,k,0)||0)+delta);ACED_STORE.set("mastery",MASTERY);persistMastery(k,delta);renderMastery();renderReadiness();}
 // Mastery is stored in this browser by ACED_STORE (above); there is no mastery endpoint to call.
 function persistMastery(moduleKey,delta){}
 function weakestModule(){
@@ -1327,7 +1330,8 @@ function tone(f,d,t='square',v=0.16){const c=ac();if(!c)return;const o=c.createO
 const sfx={sel:()=>tone(520,0.05,'square',0.1),disc:()=>tone(300,0.07,'triangle',0.12),tick:()=>tone(760,0.03,'square',0.07),card:f=>tone(f,0.06,'square',0.12),coin:()=>{tone(880,0.05,'square',0.12);setTimeout(()=>tone(1170,0.07,'square',0.12),50);},buy:()=>{tone(660,0.06);setTimeout(()=>tone(990,0.08),60);},big:()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.16),i*70));},boom:()=>{[392,523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>tone(f,0.13,'triangle',0.18),i*60));},lose:()=>{[330,247,196,147].forEach((f,i)=>setTimeout(()=>tone(f,0.2,'sawtooth',0.18),i*120));}};
 
 // ===== Joker Codex unlock tracking (pack-agnostic) =====
-let UNLOCKED=new Set(ACED_STORE.get("unlocked",STARTER_UNLOCKS));
+function savedUnlockedIds(){const ids=ACED_STORE.get("unlocked",[]);return Array.isArray(ids)?ids.filter(id=>typeof id==="string"&&id.trim().length>0):[];}
+let UNLOCKED=new Set(STARTER_UNLOCKS.concat(savedUnlockedIds()));
 function saveUnlocked(){ ACED_STORE.set("unlocked",[...UNLOCKED]); }
 // Auto-unlock jokers after each hand by running PACK.unlockConditions(ctx,G).
 function checkUnlocks(ctx){
@@ -1348,7 +1352,7 @@ function startDeck(){var topics=[];try{if(window.ACED_QUESTIONS&&window.ACED_QUE
 const STARTER_MONEY=(PACK.starter&&typeof PACK.starter.money==="number")?PACK.starter.money:4;
 function freshGame(){return{ante:1,blind:0,score:0,target:TARGETS[1][0],handsLeft:4,discLeft:3,handsThisBlind:0,money:STARTER_MONEY,
   vouchers:[],voucherOffer:null,
-  masterDeck:startDeck(),drawPile:[],hand:[],sel:new Set(),jokers:[],consumables:[],boss:null,nemesis:null,firstScored:false,busy:false,shop:null,jkState:{},handCounts:{},insight:0,handLevels:{},missedThisRun:[],conviction:{},_chargedThisClose:{},_lastAuditPassed:false,_redeemedCount:0,jkTreatment:{}};}
+  masterDeck:startDeck(),drawPile:[],hand:[],sel:new Set(),jokers:[],consumables:[],boss:null,nemesis:null,firstScored:false,busy:false,shop:null,jkState:{},handCounts:{},insight:0,handLevels:{},missedThisRun:[],conviction:Object.create(null),_chargedThisClose:Object.create(null),_lastAuditPassed:false,_redeemedCount:0,jkTreatment:{}};}
 
 const $=id=>document.getElementById(id);
 function handSize(){return (G.boss==="grind"?7:(G.boss==="thesqueeze"?6:8))+(vHas("handsize")?1:0);}
@@ -1542,8 +1546,8 @@ async function play(){
   // Added once per distinct module in the played hand (not per card) so it rewards playing
   // your studied topics without exploding. Earned only by passing that topic's Pop Quiz.
   if(G.conviction){
-    var _cseen={},_convAdd=0;
-    played.forEach(function(c){ if(c.moduleKey&&!c.weakness&&!_cseen[c.moduleKey]){ _cseen[c.moduleKey]=1; _convAdd+=(G.conviction[c.moduleKey]||0); } });
+    var _cseen=Object.create(null),_convAdd=0;
+    played.forEach(function(c){ if(c.moduleKey&&!c.weakness&&!_cseen[c.moduleKey]){ _cseen[c.moduleKey]=1; _convAdd+=(ownValue(G.conviction,c.moduleKey,0)||0); } });
     if(_convAdd>0){ ctx.mult+=_convAdd; try{ var _rm=$("roM"),_rb=_rm&&_rm.getBoundingClientRect(); if(_rb)floatText(_rb.left+_rb.width/2,_rb.top-16,"+"+_convAdd+" mult · conviction","var(--gold)"); }catch(e){} }
   }
   if(ctx.chips<0)ctx.chips=0;
@@ -1570,8 +1574,8 @@ async function play(){
   const firedModuleBonus=new Set();
   played.forEach(c=>{if(c.moduleKey&&!c.weakness){addMastery(c.moduleKey,1+(firedModuleBonus.has(c.moduleKey)?2:0));}});
   // ===== v9: CHARGE — every hand this close tallies its topics; the Pop Quiz picks from them =====
-  if(!G._chargedThisClose)G._chargedThisClose={};
-  played.forEach(function(c){ if(c.moduleKey&&!c.weakness){ G._chargedThisClose[c.moduleKey]=(G._chargedThisClose[c.moduleKey]||0)+1; } });
+  if(!G._chargedThisClose)G._chargedThisClose=Object.create(null);
+  played.forEach(function(c){ if(c.moduleKey&&!c.weakness){ setOwn(G._chargedThisClose,c.moduleKey,(ownValue(G._chargedThisClose,c.moduleKey,0)||0)+1); } });
   checkUnlocks(ctx);
   G.hand=G.hand.filter(c=>!G.sel.has(c.id));G.sel.clear();
   await wait(420);
@@ -1762,7 +1766,7 @@ function submitAudit(){
     var _pctB=0; try{_pctB=masteryPct(mk2);}catch(_e){}
     var _cashM=(conf==="HIGH"?1.5:conf==="MED"?1.2:1); var _pay=Math.max(1,Math.round((AUDIT.bounty||5)*_cashM)); G.money+=_pay; addMastery(mk2,Math.round(5*m)); // cash scales gently with confidence; the real HIGH/LOW gamble is on mastery + conviction + weakness cards below
     // v9: Conviction — passing an audit permanently buffs that topic's cards for the rest of the run.
-    if(!G.conviction)G.conviction={}; var _cv=(conf==="HIGH"?3:2); G.conviction[mk2]=Math.min(12,(G.conviction[mk2]||0)+_cv);
+    if(!G.conviction)G.conviction=Object.create(null); var _cv=(conf==="HIGH"?3:2); setOwn(G.conviction,mk2,Math.min(12,(ownValue(G.conviction,mk2,0)||0)+_cv));
     var _ins=(conf==="HIGH"?3:conf==="MED"?2:1)+(vHas("insightplus")?1:0); G.insight=(G.insight||0)+_ins; try{var _iel=$("hInsight");if(_iel){var _ib=_iel.getBoundingClientRect();floatText(_ib.left+_ib.width/2,_ib.top-10,"+"+_ins+" insight","var(--gold)");}}catch(e){}
     var _pctA=0; try{_pctA=masteryPct(mk2);}catch(_e){} var _redeemed=wasMissedEver(q); if(_redeemed){clearMissedEver(q);G._redeemedCount=(G._redeemedCount||0)+1;} var _mile=[25,50,75,100].filter(function(t){return _pctB<t&&_pctA>=t;}); var _crossed=_mile.length?_mile[_mile.length-1]:0; var _learn=_redeemed||_crossed>0; G._closeClean=true;
     G._shopDelta=(G._shopDelta||0)-1; // shop 1 cheaper
@@ -2164,7 +2168,7 @@ function nextBlind(){
   G.shop=null;
   G.target=targetFor(G.ante,G.blind);
   G.handsLeft=4+handBonus();G.discLeft=3+discBonus();G.handsThisBlind=0;G.firstScored=false;G.boss=null;G.nemesis=null;
-  G._chargedThisClose={}; // v9: fresh charge tally per close — the Pop Quiz draws only from topics you play this close
+  G._chargedThisClose=Object.create(null); // v9: fresh charge tally per close — the Pop Quiz draws only from topics you play this close
   G.auditBattle=null;
   if(G.blind===2){
     var _ab=G.nextBoss||pickAuditBoss(); G.nextBoss=null;
@@ -2251,10 +2255,10 @@ function handsView(){
 }
 
 function deckView(){
-  const counts={};G.masterDeck.forEach(c=>{counts[c.el]=counts[c.el]||{};counts[c.el][c.n]=(counts[c.el][c.n]||0)+1;});
+  const counts=Object.create(null);G.masterDeck.forEach(c=>{counts[c.el]=counts[c.el]||Object.create(null);counts[c.el][c.n]=(counts[c.el][c.n]||0)+1;});
   const cols=ELKEYS.map(el=>{
-    const items=counts[el]?Object.entries(counts[el]).map(([n,q])=>`${n} ×${q}`).join("<br>"):"—";
-    return `<div class="deckcol"><h4 class="el ${el}" style="display:inline-block;color:${ELEMENTS[el].color}">${ELEMENTS[el].label} (${G.masterDeck.filter(c=>c.el===el).length})</h4><div class="dl">${items}</div></div>`;
+    const items=counts[el]?Object.entries(counts[el]).map(([n,q])=>`${esc(n)} ×${q}`).join("<br>"):"—";
+    return `<div class="deckcol"><h4 class="el ${esc(el)}" style="display:inline-block;color:${ELEMENTS[el].color}">${esc(ELEMENTS[el].label)} (${G.masterDeck.filter(c=>c.el===el).length})</h4><div class="dl">${items}</div></div>`;
   }).join("");
   showModal(`<h2>YOUR DECK · ${G.masterDeck.length} cards</h2><div class="deckgrid">${cols}</div>
     <div class="shopbar"><button class="act play" id="closeDeck">CLOSE</button></div>`);
@@ -2325,7 +2329,7 @@ function calibData(){
   var PROB=(ACEDCore.calibration&&ACEDCore.calibration.PROB)||{LOW:.50,MED:.75,HIGH:.95};
   var calib=ACEDCore.store.get("calib",{samples:[],byModule:{}});
   var samples=calib.samples||[];
-  var by={};
+  var by=Object.create(null);
   for(var i=0;i<samples.length;i++){
     var s=samples[i]; if(!s.m) continue;
     var p=PROB[s.c]; if(p==null) continue;
@@ -2333,7 +2337,7 @@ function calibData(){
     e.n++; e.conf+=p; e.ok+=(s.ok?1:0); by[s.m]=e;
   }
   var rows=[];
-  for(var m in by){ if(!by.hasOwnProperty(m)) continue;
+  for(var m in by){ if(!Object.prototype.hasOwnProperty.call(by,m)) continue;
     var d=by[m]; if(d.n<1) continue;
     var conf=Math.round((d.conf/d.n)*100), acc=Math.round((d.ok/d.n)*100), gap=conf-acc, state;
     if(d.n<3) state="tentative";
@@ -2364,7 +2368,7 @@ function calibGridHTML(){
   var dots=d.rows.map(function(r){
     if(r.state==="tentative") return "";
     var c=CALIB_STATE[r.state].col;
-    var code=String(r.m).replace(/[^0-9A-Za-z.]/g,"");
+    var code=String(r.m);
     return '<div class="cgdot" style="left:'+r.acc+'%;bottom:'+r.conf+'%;background:'+c+';box-shadow:0 0 6px '+c+'"><span class="cgtip">'+esc(code)+'</span></div>';
   }).join("");
   var grid=
@@ -2528,7 +2532,7 @@ function renderMastery(){
   const sorted=touched.slice().sort((a,b)=>masteryPct(b)-masteryPct(a));
   const strong=sorted.slice(0,3);
   const weak=sorted.slice(-3).reverse().filter(k=>!strong.includes(k));
-  const row=(k,cls)=>{const p=masteryPct(k);return `<div class="mrow ${cls}"><span class="mk">${k}</span><span class="mlbl">${MODLABEL[k]||k}</span><span class="mbar"><span class="mfl" style="width:${p}%"></span></span><span class="mnum">${p}</span></div>`;};
+  const row=(k,cls)=>{const p=masteryPct(k);return `<div class="mrow ${cls}"><span class="mk">${esc(k)}</span><span class="mlbl">${esc(MODLABEL[k]||k)}</span><span class="mbar"><span class="mfl" style="width:${p}%"></span></span><span class="mnum">${p}</span></div>`;};
   let html='<div class="mh strong">STRONGEST</div>'+strong.map(k=>row(k,"strong")).join("");
   if(weak.length)html+='<div class="mh weak">WEAKEST</div>'+weak.map(k=>row(k,"weak")).join("");
   body.innerHTML=html;
@@ -2538,7 +2542,7 @@ function readinessPct(){
   // CC-3: exam-weighted readiness. Average mastery within each blueprint area (across ALL
   // its modules, so untouched modules drag coverage down), then weight areas by emphasis.
   const W=(PACK.blueprintWeights)||{F1:.25,F2:.25,F3:.25,F4:.25};
-  const areas={};
+  const areas=Object.create(null);
   ALLMODS.forEach(k=>{const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(masteryPct(k));});
   let tot=0,wsum=0;
   Object.keys(W).forEach(a=>{const arr=areas[a];if(!arr||!arr.length)return;const avg=arr.reduce((s,v)=>s+v,0)/arr.length;tot+=W[a]*avg;wsum+=W[a];});
@@ -2551,7 +2555,7 @@ function shareCardArgs(){return {score:G.score,streak:liveStreak(),section:SECTI
 function renderReadiness(){
   const p=readinessPct();const f=$("rFill"),t=$("rPct");if(f)f.style.width=p+"%";if(t)t.textContent=p+"%";
   const cov=$("coverageRow");
-  if(cov){ const total=ALLMODS.length; const touched=ALLMODS.filter(k=>(MASTERY[k]||0)>0).length;
+  if(cov){ const total=ALLMODS.length; const touched=ALLMODS.filter(k=>(ownValue(MASTERY,k,0)||0)>0).length;
     const wk=weakestModule(); const wkl=wk?(MODLABEL[wk]||wk):"\u2014";
     cov.innerHTML=`COVERAGE <b>${touched}/${total}</b> modules \u00b7 weakest: <span class="wk">${esc(wkl)}</span>`; }
   const gm=$("gateMock"),gr=$("gateReady");
@@ -2586,12 +2590,12 @@ function readinessReport(){
       calLine="Calibration <b>"+s.pct+"%</b> ("+q+"). Accuracy <b>"+s.accuracy+"%</b> across "+s.n+" answer"+(s.n!==1?"s":"")+".";
     }
   } }catch(e){}
-  const areas={}; ALLMODS.forEach(function(k){const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(k);});
+  const areas=Object.create(null); ALLMODS.forEach(function(k){const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(k);});
   let body="";
   Object.keys(areas).sort().forEach(function(a){
     body+='<div class="rrarea">'+esc(a)+' \u00b7 '+areas[a].length+' modules</div>';
     areas[a].forEach(function(k){
-      const p=masteryPct(k); const st=moduleStatus(p); const touched=(MASTERY[k]||0)>0;
+      const p=masteryPct(k); const st=moduleStatus(p); const touched=(ownValue(MASTERY,k,0)||0)>0;
       body+='<div class="rrrow"><span class="rrk">'+esc(k)+'</span><span class="rrlbl">'+esc(MODLABEL[k]||k)+'</span><span class="rrbar"><span class="rrfill '+st.c+'" style="width:'+p+'%"></span></span><span class="rrp">'+p+'%</span><span class="rrbadge '+(touched?st.c:"weak")+'">'+(touched?st.w:"NOT STARTED")+'</span></div>';
     });
   });
@@ -2695,7 +2699,7 @@ function openInsight(){
   $("modal").classList.add("qmodal");
   function _sync(){ try{var e=$("hInsight");if(e)e.textContent=(G.insight||0);}catch(_){} }
   HAND_LIST.forEach(function(h,idx){ var b=$("ih"+idx); if(b)b.onclick=function(){ if((G.insight||0)<3)return; if(!G.handLevels)G.handLevels={}; var v=G.handLevels[h]||{chips:0,mult:0}; v.chips+=15; v.mult+=1; G.handLevels[h]=v; G.insight-=3; try{callout("\u2191 "+h.toUpperCase()+" LEVELED","var(--gold)");}catch(e){} _sync(); openInsight(); }; });
-  SUIT_LIST.forEach(function(s){ var b=$("is"+s[0]); if(b)b.onclick=function(){ if((G.insight||0)<2)return; var n=0; (G.masterDeck||[]).forEach(function(c){ if(c.el===s[0]&&!c.weakness){ c.v=(c.v||0)+8; n++; } }); (G.hand||[]).forEach(function(c){ if(c.el===s[0]&&!c.weakness) c.v=(c.v||0)+8; }); G.insight-=2; try{callout("\u2191 "+s[1].toUpperCase()+" +8 CHIPS ("+n+" cards)","var(--gold)");}catch(e){} _sync(); try{render();}catch(e){} openInsight(); }; });
+  SUIT_LIST.forEach(function(s){ var b=$("is"+s[0]); if(b)b.onclick=function(){ if((G.insight||0)<2)return; var n=0; new Set((G.masterDeck||[]).concat(G.hand||[])).forEach(function(c){ if(c.el===s[0]&&!c.weakness){ c.v=(c.v||0)+8; n++; } }); G.insight-=2; try{callout("\u2191 "+s[1].toUpperCase()+" +8 CHIPS ("+n+" cards)","var(--gold)");}catch(e){} _sync(); try{render();}catch(e){} openInsight(); }; });
   var ic=$("iClose"); if(ic)ic.onclick=function(){ hideModal(); };
 }
 
@@ -2709,7 +2713,7 @@ const STARTER_DOCTRINES=(function(){
 })();
 function start(){hideModal();G=freshGame();
   G.jokers=STARTER_DOCTRINES.map(id=>ALLJK.find(j=>j.id===id)).filter(Boolean);
-  MASTERY=ACED_STORE.get("mastery",{});window._ACED_STATE.mastery=MASTERY;UNLOCKED=new Set(STARTER_UNLOCKS);G._shopDelta=0;G._readyShown=false;
+  MASTERY=ACED_STORE.get("mastery",{});window._ACED_STATE.mastery=MASTERY;UNLOCKED=new Set([...UNLOCKED,...STARTER_UNLOCKS,...savedUnlockedIds()]);G._shopDelta=0;G._readyShown=false;
   rollVoucherOffer();
   try{ if(window.ACEDCore) ACEDCore.analytics.track("run_start",{pack:(PACK&&PACK.id)||null}); }catch(e){}
   startBlind();$("game").style.display="block";G.busy=false;
@@ -3011,8 +3015,9 @@ function runQuiz(opts){
 // --- REVIEW: resurface missed questions ---
 function launchReview(){
   if(!QBANK||!QBANK.length){toast("Question bank is still loading \u2014 try again in a moment.");return;}
-  let q=[]; try{ if(window.ACEDCore) q=ACEDCore.review.queue(QBANK,10); }catch(e){ console.error("Review queue failed:",e); }
-  if(!q.length){toast("No missed questions yet \u2014 they'll appear here after you miss some in a Pop Quiz.");return;}
+  if(!window.ACEDCore||!ACEDCore.review){toast("Review is unavailable right now. Please try again.");return;}
+  let q=[]; try{ q=ACEDCore.review.queue(QBANK,10); }catch(e){toast("Review is unavailable right now. Please try again.");return;}
+  if(!q.length){toast("No questions due right now.");return;}
   try{ if(window.ACEDCore) ACEDCore.analytics.track("review_started",{n:q.length}); }catch(e){}
   runQuiz({title:"REVIEW",kind:"review",questions:q});
 }
@@ -3056,7 +3061,7 @@ function launchMockExam(){
     const pool=(QBANK||[]).slice();
     if(pool.length<5){toast("Not enough questions for a mock test yet.");return;}
     for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=pool[i];pool[i]=pool[j];pool[j]=t;}
-    const byMod={}; pool.forEach(q=>{(byMod[q.source]=byMod[q.source]||[]).push(q);});
+    const byMod=Object.create(null); pool.forEach(q=>{(byMod[q.source]=byMod[q.source]||[]).push(q);});
     const mods=Object.keys(byMod); const target=Math.min(20,pool.length); let picks=[],mi=0,guard=0;
     while(picks.length<target && guard<target*50){ const m=mods[mi%mods.length]; if(byMod[m]&&byMod[m].length)picks.push(byMod[m].shift()); mi++; guard++; }
     try{ if(window.ACEDCore) ACEDCore.analytics.track("mock_exam_started",{n:picks.length}); }catch(e){}
