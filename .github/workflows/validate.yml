@@ -46,6 +46,8 @@ jobs:
           node aced-pro.test.js
           node importer.extract.test.js
           node builder.contract.test.js
+      - name: Test actual study runtime safety and correctness
+        run: node --test aced-game-runtime.test.js
       - name: Validate and test task-based simulations
         run: |
           node tools/validate-tbs.js
