@@ -181,46 +181,126 @@
       return q;
     });
   }
+  function parseResult(pack, issues, input) {
+    return { pack: pack, issues: issues, stats: {
+      cards: pack ? pack.questions.length : 0, issues: issues.length,
+      lines: input ? input.split(/\r\n?|\n/).length : 0
+    } };
+  }
+  function plainTextReport(input, options) {
+    var rows = [], issues = [], issueLines = new Set(), seen = new Set(), ids = new Set();
+    var source = "General", pending = null, lines = input.split(/\r\n?|\n/);
+    function issue(line, reason) {
+      if (issueLines.has(line)) return;
+      issueLines.add(line);
+      issues.push({ line: line, text: lines[line - 1], reason: reason });
+    }
+    function add(row, line) {
+      try {
+        var question = normalizeQuestion(row, rows.length);
+        var key = JSON.stringify([question.q, question.answer]);
+        if (seen.has(key)) { issue(line, "Duplicate question and answer"); return; }
+        if (ids.has(question.id)) { issue(line, "Question shares another question's ID"); return; }
+        if (rows.length >= MAX_QUESTIONS) {
+          issue(line, "A pack can contain up to " + MAX_QUESTIONS + " questions."); return;
+        }
+        seen.add(key); ids.add(question.id); rows.push(question);
+      } catch (e) { issue(line, e.message); }
+    }
+    function finishBlock() {
+      if (!pending) return;
+      if (pending.answerLine === null) issue(pending.line, "Q: needs an A: answer.");
+      else add({ q: pending.q, answer: pending.answer.join("\n"), source: pending.source }, pending.line);
+      pending = null;
+    }
+    function separator(line, patterns) {
+      var urls = [], urlPattern = /https?:\/\/\S+/gi, url;
+      while ((url = urlPattern.exec(line))) urls.push([url.index, url.index + url[0].length]);
+      for (var i = 0; i < patterns.length; i++) {
+        var match;
+        while ((match = patterns[i].exec(line))) {
+          if (!urls.some(function (range) { return match.index >= range[0] && match.index < range[1]; })) {
+            return { left: line.slice(0, match.index).trim(), right: line.slice(match.index + match[0].length).trim(), colon: i === 1 };
+          }
+        }
+      }
+      return null;
+    }
+    lines.forEach(function (rawLine, index) {
+      var number = index + 1, line = rawLine.trim();
+      if (!line) { finishBlock(); return; }
+      line = line.replace(/^(?:[-*+•]|\d+[.)])\s+/, "");
+      var heading = line.match(/^#{1,6}\s+(.*)$/);
+      if (heading) { finishBlock(); source = heading[1].trim().slice(0, 100) || "General"; return; }
+      var match = line.match(/^(?:Q|Question):\s*(.*)$/i);
+      if (match) {
+        finishBlock();
+        pending = { q: match[1], source: source, line: number, answerLine: null, answer: [] };
+        return;
+      }
+      match = line.match(/^(?:A|Ans|Answer):\s*(.*)$/i);
+      if (match) {
+        if (!pending) issue(number, "Answer needs a preceding Q:.");
+        else if (pending.answerLine !== null) issue(number, "A second A: is not allowed in one Q:/A: block.");
+        else { pending.answerLine = number; pending.answer.push(match[1]); }
+        return;
+      }
+      if (pending) {
+        if (pending.answerLine !== null) pending.answer.push(line);
+        else issue(number, "Expected an A: answer after the preceding Q:.");
+        return;
+      }
+      if (/^https?:\/\/\S+$/i.test(line)) {
+        issue(number, "A URL is not a question/answer pair. Paste the question and answer instead."); return;
+      }
+      var pair = separator(line, [/::/g, /:[ \t]+/g, /[ \t]+=[ \t]+/g, /[ \t]+->[ \t]+/g,
+        /[ \t]+=>[ \t]+/g, /[ \t]+→[ \t]+/g, /[ \t]+—[ \t]+/g, /[ \t]+–[ \t]+/g,
+        /[ \t]+-[ \t]+/g, /[ \t]+\/[ \t]+/g]);
+      if (!pair) {
+        issue(number, "This line is not a question/answer pair. Use Term: definition or Q: / A: lines; ACED does not invent answers from prose.");
+        return;
+      }
+      var term = pair.left.replace(/^(?:\*\*|__)/, "").replace(/(?:\*\*|__)$/, "").trim();
+      var answer = pair.right, topic = source;
+      if (pair.colon && /^(?:spanish|french|german|italian|portuguese|japanese|chinese|mandarin|korean|latin|arabic|russian|hindi|vocab|vocabulary)$/i.test(term)) {
+        var languagePair = separator(answer, [/[ \t]+\/[ \t]+/g]);
+        if (languagePair) { topic = term; term = languagePair.left; answer = languagePair.right; }
+      }
+      term = term.replace(/^(?:\*\*|__)/, "").replace(/(?:\*\*|__)$/, "").trim();
+      add({ q: /[?？]$/.test(term) ? term : term ? "What is " + term + "?" : "", answer: answer, source: topic }, number);
+    });
+    finishBlock();
+    issues.sort(function (a, b) { return a.line - b.line; });
+    return parseResult(rows.length ? normalize({ questions: rows }, options) : null, issues, input);
+  }
   function parse(input, options) {
     options = options || {};
+    if (options.report && typeof input === "string" && !input.trim()) return parseResult(null, [], input);
     if (typeof input !== "string" || !input.trim()) throw new Error("Paste some questions or choose a study-pack file first.");
     if (input.length > MAX_TEXT) throw new Error("This input is too large. Split it into smaller packs.");
+    var plainInput = input.replace(/^\uFEFF/, "");
     input = input.replace(/^\uFEFF/, "").trim();
     if (/^[\[{]/.test(input)) {
       var raw;
       try { raw = JSON.parse(input); }
       catch (e) { throw new Error("That JSON is not valid. Check its commas, quotation marks and brackets."); }
-      return normalize(raw, options);
+      var jsonPack = normalize(raw, options);
+      return options.report ? parseResult(jsonPack, [], plainInput) : jsonPack;
     }
     var firstLine = input.split(/\r?\n/)[0];
     var ext = String(options.filename || "").split(".").pop().toLowerCase();
     if (ext === "csv" || ext === "tsv" || firstLine.indexOf("\t") >= 0 || /^(question|q|prompt|front|term)\s*,/i.test(firstLine)) {
-      return normalize({ questions: tableQuestions(parseDelimited(input, ext === "tsv" || firstLine.indexOf("\t") >= 0 ? "\t" : ",")) }, options);
+      var tablePack = normalize({ questions: tableQuestions(parseDelimited(input, ext === "tsv" || firstLine.indexOf("\t") >= 0 ? "\t" : ",")) }, options);
+      return options.report ? parseResult(tablePack, [], plainInput) : tablePack;
     }
-    var rows = [], skipped = [], lines = input.split(/\r?\n/), pending = null;
-    lines.forEach(function (line, i) {
-      line = line.trim();
-      if (!line || /^#{1,6}\s/.test(line)) return;
-      line = line.replace(/^(?:[-*+]|\d+\.)\s+/, "");
-      if (/^https?:\/\//i.test(line)) { skipped.push(i + 1); return; }
-      var match = line.match(/^Q(?:uestion)?\s*:\s*(.+)$/i);
-      if (match) {
-        if (pending) throw new Error("The question on line " + pending.line + " needs an A: answer.");
-        pending = { q: match[1], line: i + 1 }; return;
-      }
-      match = line.match(/^A(?:nswer)?\s*:\s*(.+)$/i);
-      if (match && pending) { rows.push({ q: pending.q, answer: match[1] }); pending = null; return; }
-      if (pending) throw new Error("Put the answer on its own line beginning with A: (line " + (i + 1) + ").");
-      match = line.match(/^(.{1,500}?)\s*(?:::|:|=|\s\/\s)\s*(.+)$/);
-      if (match && match[1].trim() && match[2].trim()) {
-        rows.push({ q: /[?？]$/.test(match[1]) ? match[1].trim() : "What is " + match[1].trim() + "?", answer: match[2].trim() });
-      } else skipped.push(i + 1);
-    });
-    if (pending) throw new Error("The last Q: needs an A: answer.");
-    if (skipped.length) {
-      throw new Error("Line " + skipped[0] + " is not a question/answer pair. Use Term: definition, Q: / A: lines, or a two-column file. ACED does not invent answers from prose.");
+    var result = plainTextReport(plainInput, options);
+    if (options.report) return result;
+    if (result.issues.length) {
+      var message = result.issues.slice(0, 5).map(function (entry) { return "Line " + entry.line + ": " + entry.reason; }).join("\n");
+      if (result.issues.length > 5) message += "\nAnd " + (result.issues.length - 5) + " more";
+      var error = new Error(message); error.issues = result.issues; throw error;
     }
-    return normalize({ questions: rows }, options);
+    return result.pack || normalize({ questions: [] }, options);
   }
   function registry() {
     var data = read(KEY, { version: 1, packs: [] });

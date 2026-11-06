@@ -152,5 +152,106 @@ test("saving to the library does not launch a game", () => {
   assert.match(s.elements.get("import-status").textContent, /Saved to your library/);
 });
 
+// Report-screen tests use the real parser and retain all navigation tests above.
+function reportImporter() {
+  const L = require("./aced-library.js"), elements = new Map(), saves = [];
+  function node() {
+    let id = "", content = "";
+    const n = {
+      value: "", hidden: false, disabled: false, innerHTML: "", style: {},
+      children: [], listeners: {}, focus() {}, querySelector() { return null; },
+      addEventListener(type, callback) { this.listeners[type] = callback; },
+      appendChild(child) { this.children.push(child); }
+    };
+    Object.defineProperty(n, "id", {
+      get: () => id, set(value) { id = value; elements.set(value, n); }
+    });
+    Object.defineProperty(n, "textContent", {
+      get: () => content + n.children.map(child => child.textContent).join(""),
+      set(value) { content = String(value); n.children = []; }
+    });
+    return n;
+  }
+  function element(id) {
+    if (!elements.has(id)) { const n = node(); n.id = id; }
+    return elements.get(id);
+  }
+  element("review-stage").hidden = true;
+  const location = { search: "", hash: "", href: "https://acedhq.com/importer.html" };
+  const sandbox = {
+    URLSearchParams, location, history: { replaceState() {} },
+    document: { readyState: "loading", addEventListener() {}, getElementById: element, createElement: node },
+    ACEDLibrary: Object.assign({}, L, {
+      importShared: () => null, getDraft: () => null, stashDraft() {},
+      isPersistent: () => true, save(value) { saves.push(value); return value; }
+    })
+  };
+  sandbox.window = sandbox; vm.createContext(sandbox);
+  scripts.forEach(script => vm.runInContext(script.code, sandbox, { filename: script.name }));
+  return {
+    elements, saves,
+    review(text) { element("pack-notes").value = text; element("pack-form").onsubmit({ preventDefault() {} }); },
+    change(text) { element("pack-notes").value = text; element("pack-notes").listeners.input(); },
+    click(id) { element(id).onclick(); }
+  };
+}
+
+test("partial imports show a text-only issue report and require explicit acceptance before saving", () => {
+  const s = reportImporter();
+  s.review('Dog: perro\n<img src=x onerror="alert(1)">');
+  const status = s.elements.get("import-status");
+  assert.match(status.textContent, /^1 cards ready · 1 lines need attention/);
+  assert.match(status.textContent, /Leave a blank line after a Q:\/A: block\./);
+  const item = s.elements.get("import-issues").children[0];
+  assert.match(item.textContent, /Line 2:.*<img src=x onerror="alert\(1\)">/);
+  assert.equal(item.innerHTML, "");
+  assert.equal(item.children.length, 0, "issue text must not create markup nodes");
+  assert.equal(s.elements.get("save-play").disabled, true);
+  assert.equal(s.saves.length, 0);
+  s.click("save-library"); assert.equal(s.saves.length, 0, "programmatic save cannot bypass review");
+  s.click("continue-lines");
+  assert.equal(s.elements.get("save-play").disabled, false);
+  s.click("save-library"); assert.equal(s.saves.length, 1);
+  assert.equal(s.saves[0].questions.length, 1);
+});
+
+test("a report with no cards disables Play and Continue and never saves", () => {
+  const s = reportImporter(); s.review("A: Paris");
+  assert.match(s.elements.get("import-status").textContent, /^0 cards ready · 1 lines need attention/);
+  assert.equal(s.elements.get("save-play").disabled, true);
+  assert.equal(s.elements.get("continue-lines").disabled, true);
+  s.click("save-play"); s.click("continue-lines");
+  assert.equal(s.saves.length, 0);
+});
+
+test("Fix lines preserves the source and editing reparses and invalidates prior approval", () => {
+  const text = "\nDog: perro\nJust prose", s = reportImporter();
+  s.review(text); s.click("continue-lines");
+  assert.equal(s.elements.get("save-play").disabled, false);
+  s.click("fix-lines");
+  assert.equal(s.elements.get("pack-notes").value, text);
+  assert.equal(s.elements.get("input-stage").hidden, false);
+  s.change("\nCat: gato\nStill prose");
+  assert.match(s.elements.get("import-status").textContent, /^1 cards ready · 1 lines need attention/);
+  assert.match(s.elements.get("import-issues").textContent, /Line 3:/);
+  assert.equal(s.elements.get("save-play").disabled, true);
+  assert.equal(s.saves.length, 0);
+  s.change("Cat: gato");
+  assert.match(s.elements.get("import-status").textContent, /^1 cards ready · 0 lines need attention/);
+  assert.equal(s.elements.get("save-play").disabled, false);
+});
+
+test("Change input retains an unfinished question-editor edit", () => {
+  const s = reportImporter(); s.review("Dog: perro");
+  const field = {
+    value: "", dataset: { field: "answer" }, hasAttribute: () => false,
+    closest: () => ({ dataset: { question: "0" } })
+  };
+  s.elements.get("question-editors").oninput({ target: field });
+  s.click("back-input");
+  const raw = JSON.parse(s.elements.get("pack-notes").value);
+  assert.equal(raw.questions[0].answer, "");
+});
+
 console.log("aced-importer: " + passed + " passed, " + failed + " failed.");
 if (failed) process.exitCode = 1;
