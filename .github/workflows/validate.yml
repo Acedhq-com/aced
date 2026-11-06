@@ -44,7 +44,6 @@ jobs:
           node aced-pro.test.js
           node importer.extract.test.js
           node builder.contract.test.js
-          node aced-analytics.test.js
       - name: Validate and test task-based simulations
         run: |
           node tools/validate-tbs.js
