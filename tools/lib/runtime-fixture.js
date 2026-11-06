@@ -9,7 +9,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "../..");
 const read = name => fs.readFileSync(path.join(root, name), "utf8");
 const html = read("study.html");
-const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)].map(m => m[1]);
+const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script(?:\s+[^>]*)?>/gi)].map(m => m[1]);
 const loader = scripts.find(s => s.includes("(function loadPack()"));
 const engine = scripts.find(s => s.includes("window._packReady=function"));
 const end = "}; // ===== end window._packReady =====";
