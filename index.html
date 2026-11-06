@@ -265,7 +265,7 @@
         <!-- LEFT: message + CTAs -->
         <div>
           <h1>Study is a <span class="hl">video game</span><br>now &mdash; <span class="am">for anything you want to learn.</span></h1>
-          <p class="lede">Paste any notes &mdash; a chapter, a whole course, a random Wikipedia page &mdash; and ACED turns them into a <b>roguelike</b> you'll actually want to play. <b>Hands, blinds, jokers, and runs</b>, with your material woven in as real questions and <b>confidence scoring</b>. Miss one and it comes back on a <b>spaced schedule</b>.</p>
+          <p class="lede">Paste Term: definition lines or Q&amp;A pairs. You'll see exactly which lines became cards before you play. <b>Hands, blinds, jokers, and runs</b>, with your material woven in as real questions and <b>confidence scoring</b>. Miss one and it comes back on a <b>spaced schedule</b>.</p>
           <div class="kicker">Forget you're studying. Chase the next run.</div>
 
           <div class="ctas">
@@ -587,16 +587,20 @@ Spanish: perro / dog</div>
   var bootGo=document.getElementById("bootGo"), bootNotes=document.getElementById("bootNotes");
   if(bootGo && bootNotes){
     bootGo.addEventListener("click", function(){
-      var txt=(bootNotes.value||"").trim();
-      if(txt.length<25){ bootNotes.focus();
+      var txt=bootNotes.value||"";
+      if(!txt.trim()){ bootNotes.focus();
         var sub=bootGo.querySelector(".sub"); if(sub) sub.textContent="PASTE A FEW LINES FIRST \u2014 OR PLAY THE DEMO ABOVE"; return; }
       var dest="importer.html?boot=1";
       try{
         if(window.ACEDLibrary){
+          window.ACEDLibrary.parse(txt,{report:true});
           window.ACEDLibrary.stashDraft({text:txt,name:"",subject:""});
           if(!window.ACEDLibrary.isPersistent() && txt.length<=60000) dest+="#notes="+window.ACEDLibrary.encode(txt);
         }
-      }catch(e){}
+      }catch(e){
+        var errorSub=bootGo.querySelector(".sub"); if(errorSub) errorSub.textContent=e.message;
+        bootNotes.focus(); return;
+      }
       try{ if(window.ACEDCore) ACEDCore.analytics.track("boot_compile",{len:txt.length}); }catch(_){}
       location.href=dest;
     });

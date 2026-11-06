@@ -22,6 +22,8 @@ jobs:
           node tools/validate.js --pack spanish-1k
       - name: Test pack import, persistence and sharing
         run: node aced-library.test.js
+      - name: Test plain-text partial imports and issue reports
+        run: node --test aced-parser.test.js
       - name: Test library bridge and safe importer navigation
         run: |
           node --test aced-bridge.test.js
