@@ -51,7 +51,7 @@ var logs = [];
 function env(hash, mem, opts) {
   opts = opts || {};
   mem = mem || {};
-  var replaced = [], coreCalls = [], fetches = [];
+  var replaced = [], coreCalls = [], fetches = [], toasts = 0;
   var storage = {
     getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
     setItem: function (k, v) { mem[k] = String(v); },
@@ -63,7 +63,7 @@ function env(hash, mem, opts) {
     sync: {
       isEnabled: function () { return !!be.endpoint; },
       push: function () { coreCalls.push("push"); return Promise.resolve({}); },
-      pull: function () { coreCalls.push("pull"); return Promise.resolve({ applied: false }); }
+      pull: function () { coreCalls.push("pull"); return Promise.resolve(opts.syncResult || { applied: false }); }
     }
   };
   var server = opts.server || {};
@@ -78,13 +78,17 @@ function env(hash, mem, opts) {
     return Promise.resolve({ status: out.status, json: function () { return Promise.resolve(out.body || {}); } });
   };
   global.window = { localStorage: storage, ACED_API_URL: API, crypto: require("crypto").webcrypto, ACEDCore: core };
+  if (opts.fx) {
+    global.ACEDFX = global.window.ACEDFX = { toast: function () { toasts++; }, palette: { cyan: "fixture" } };
+  } else { delete global.ACEDFX; }
   global.ACEDCore = core;
   global.location = { hash: hash || "", search: opts.search || "", pathname: "/", href: "https://app.example.test/" + (hash || "") };
   global.history = { replaceState: function (a, b, url) { replaced.push(url); global.location.hash = ""; } };
   global.document = fakeDocument();
   delete require.cache[modPath];
   require("./aced-account.js");
-  return { mem: mem, replaced: replaced, coreCalls: coreCalls, fetches: fetches, doc: global.document, A: global.window.ACEDAccount };
+  return { mem: mem, replaced: replaced, coreCalls: coreCalls, fetches: fetches, doc: global.document, A: global.window.ACEDAccount,
+    toastCount: function () { return toasts; } };
 }
 function byId(e, id) { return e.doc._find(function (n) { return n.id === id; }); }
 function settle() { return new Promise(function (r) { setTimeout(r, 0); }); }
@@ -280,6 +284,22 @@ test("first signed-in account adopts this browser's progress and syncs", functio
 test("same account signing in again keeps syncing", function () {
   var e = env("", { aced_session: SESSION_A2, aced_sync_owner: "acct-a" });
   return e.A.ready().then(function () { assert.deepStrictEqual(e.coreCalls, ["configure", "push", "pull"]); });
+});
+
+test("bounded held review pull never triggers the existing success toast", async function () {
+  for (var reason of ["review-state-held", "review-serialization-failed", "review-storage-unavailable"]) {
+    var e = env("", { aced_session: SESSION_A, aced_sync_owner: "acct-a" },
+      { fx: true, syncResult: { applied: false, reason: reason } });
+    await e.A.ready();
+    assert.deepStrictEqual(e.coreCalls, ["configure", "push", "pull"]);
+    assert.strictEqual(e.toastCount(), 0);
+  }
+});
+
+test("accepted pull retains the existing conditional success toast", function () {
+  var e = env("", { aced_session: SESSION_A, aced_sync_owner: "acct-a" },
+    { fx: true, syncResult: { applied: true, keys: 1 } });
+  return e.A.ready().then(function () { assert.strictEqual(e.toastCount(), 1); });
 });
 
 test("a different account never receives or overwrites another account's local progress", function () {

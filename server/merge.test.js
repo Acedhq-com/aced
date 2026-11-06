@@ -1,6 +1,7 @@
 /* server/merge.test.js — zero-dependency tests for the sync merge.
    Run:  node server/merge.test.js   (exit 0 = all pass) */
 "use strict";
+require("../tools/lib/question-id-integrity-tests")("server");
 const { mergeState } = require("./merge");
 let pass = 0, fail = 0;
 function eq(actual, expected, name) {

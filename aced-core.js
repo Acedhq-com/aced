@@ -30,13 +30,107 @@
   /* ---------- storage (try/catch + in-memory fallback) ---------- */
   var mem = {}, lsOk = false;
   try { var k = "__acedcore__"; window["local" + "Storage"].setItem(k, "1"); window["local" + "Storage"].removeItem(k); lsOk = true; } catch (e) { lsOk = false; }
-  function rd(key) { if (lsOk) { try { return window["local" + "Storage"].getItem(NS + key); } catch (e) { lsOk = false; return mem[key] == null ? null : mem[key]; } } return mem[key] == null ? null : mem[key]; }
-  function wr(key, v) { if (lsOk) { try { window["local" + "Storage"].setItem(NS + key, v); return; } catch (e) { lsOk = false; mem[key] = v; return; } } mem[key] = v; }
+  function rd(key) { if (lsOk) { try { var raw = window["local" + "Storage"].getItem(NS + key); if (key === "review") mem[key] = raw; return raw; } catch (e) { lsOk = false; } } return mem[key] == null ? null : mem[key]; }
+  function wr(key, v) { if (lsOk) { try { window["local" + "Storage"].setItem(NS + key, v); if (key === "review") mem[key] = v; return "durable"; } catch (e) { lsOk = false; } } mem[key] = v; return "memory"; }
   var store = {
     get: function (key, fb) { var raw = rd(key); if (raw == null) return fb; try { return JSON.parse(raw); } catch (e) { return fb; } },
-    set: function (key, v) { try { wr(key, JSON.stringify(v)); } catch (e) {} },
+    set: function (key, v) { try { wr(key, JSON.stringify(key === "review" || key === "learning_v1" ? jsonCopy(v) : v)); } catch (e) {} },
     isPersistent: function () { return lsOk; }
   };
+
+  // Scoped review data boundaries. Descriptors avoid getters and safe insertion
+  // keeps literal IDs (including __proto__) intact after ordinary JSON reloads.
+  function field(o, k) { var d = o && Object.getOwnPropertyDescriptor(o, k); return d && d.enumerable && Object.prototype.hasOwnProperty.call(d, "value") ? d : null; }
+  function value(o, k) { var d = field(o, k); return d ? d.value : undefined; }
+  function put(o, k, v) { Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true }); }
+  function dataObject(v) {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+    var p = Object.getPrototypeOf(v);
+    while (p) {
+      var d = Object.getOwnPropertyDescriptor(p, "constructor");
+      var name = d && Object.prototype.hasOwnProperty.call(d, "value") && typeof d.value === "function" ? Object.getOwnPropertyDescriptor(d.value, "name") : null;
+      if (d && !d.enumerable && name && Object.prototype.hasOwnProperty.call(name, "value") && name.value !== "Object") return false;
+      p = Object.getPrototypeOf(p);
+    }
+    return true;
+  }
+  function jsonCopy(v, stack) {
+    if (v === null || typeof v === "string" || typeof v === "boolean") return v;
+    if (typeof v === "number" && isFinite(v)) return v;
+    if (!v || typeof v !== "object" || (!Array.isArray(v) && !dataObject(v))) throw new Error("serialization-failed");
+    stack = stack || [];
+    if (stack.indexOf(v) >= 0 || Object.getOwnPropertySymbols(v).length) throw new Error("serialization-failed");
+    stack.push(v);
+    var out = Array.isArray(v) ? Object.setPrototypeOf([], null) : Object.create(null), keys = Object.keys(v), names = Object.getOwnPropertyNames(v);
+    if (names.some(function (k) { return !Object.prototype.hasOwnProperty.call(Object.getOwnPropertyDescriptor(v, k), "value"); })) throw new Error("serialization-failed");
+    if (Array.isArray(v) && (names.length !== v.length + 1 || keys.length !== v.length || keys.some(function (k, i) { return k !== String(i); }))) throw new Error("serialization-failed");
+    keys.forEach(function (k) { var d = field(v, k); if (!d) throw new Error("serialization-failed"); put(out, k, jsonCopy(d.value, stack)); });
+    stack.pop(); return out;
+  }
+  function countValue(v) { return typeof v === "number" && Number.isSafeInteger(v) && v >= 0; }
+  function knownCount(o, k) { return !!field(o, k) && countValue(value(o, k)); }
+  function knownBox(o) { var b = value(o, "box"); return !!field(o, "box") && Number.isInteger(b) && b >= 0 && b <= 5; }
+  function reviewResult(outcome, persistence, reason) { return { outcome: outcome, persistence: persistence, reason: reason }; }
+  function reviewSource() {
+    var raw = rd("review");
+    if (raw != null) { try { JSON.parse(raw); } catch (e) { return { corrupt: true }; } }
+    return { state: store.get("review", {}), absent: raw == null };
+  }
+  function acceptReview(prepared) {
+    try {
+      var persistence = wr("review", prepared);
+      return persistence === "durable" || persistence === "memory" ?
+        { persistence: persistence } : { reason: "storage-unavailable" };
+    } catch (e) { return { reason: "storage-unavailable" }; }
+  }
+  function commitReview(candidate) {
+    var prepared;
+    try { prepared = JSON.stringify(jsonCopy(candidate)); }
+    catch (e) { return { reason: "serialization-failed" }; }
+    return acceptReview(prepared);
+  }
+  function equalReview(a, b) {
+    if (a === b) return true;
+    if (!a || !b || typeof a !== "object" || typeof b !== "object" || Array.isArray(a) !== Array.isArray(b)) return false;
+    var ak = Object.keys(a), bk = Object.keys(b);
+    return ak.length === bk.length && ak.every(function (k) {
+      return !!field(b, k) && equalReview(value(a, k), value(b, k));
+    });
+  }
+  function comparableReview(e) {
+    return dataObject(e) && ["last", "seen"].every(function (k) {
+      var v = value(e, k);
+      return !field(e, k) || v === null || ["number", "string", "boolean"].indexOf(typeof v) >= 0;
+    });
+  }
+  // Review-only inbound boundary: one post-response raw snapshot, no display
+  // fallback, field union, retry, or stronger cross-tab transaction promise.
+  function prepareInboundReview(descriptor) {
+    if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value"))
+      return { reason: "review-serialization-failed" };
+    var raw = rd("review"), current, incoming, absent = raw == null;
+    if (!lsOk && !Object.prototype.hasOwnProperty.call(mem, "review")) return { reason: "review-storage-unavailable" };
+    if (!absent) {
+      try { current = JSON.parse(raw); }
+      catch (e) { return { reason: "review-state-held" }; }
+    }
+    try {
+      if (!absent) current = jsonCopy(current);
+      incoming = jsonCopy(descriptor.value);
+    } catch (e) { return { reason: "review-serialization-failed" }; }
+    if (!absent) {
+      if (equalReview(current, incoming)) return { noop: true };
+      if (!dataObject(current) || !dataObject(incoming)) return { reason: "review-state-held" };
+      var conflict = Object.keys(current).some(function (k) {
+        if (!field(incoming, k)) return true;
+        var a = value(current, k), b = value(incoming, k);
+        return (!comparableReview(a) || !comparableReview(b)) && !equalReview(a, b);
+      });
+      if (conflict) return { reason: "review-state-held" };
+    }
+    try { return { prepared: JSON.stringify(incoming) }; }
+    catch (e) { return { reason: "review-serialization-failed" }; }
+  }
 
   /* short stable hash for a question (used as a review key with its module) */
   function hash(s) { var h = 0, i; s = String(s == null ? "" : s); for (i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; } return h.toString(36); }
@@ -144,9 +238,9 @@
   var REVIEW_ID_MIGRATION_KEY = "reviewCanonicalIdsV1";
   function validScheduleNumber(value) { return typeof value === "number" && isFinite(value) && value >= 0; }
   function validReviewSchedule(entry) {
-    return validScheduleNumber(entry.dueAt) && entry.dueAt > 0 &&
-      (entry.intervalDays === undefined || validScheduleNumber(entry.intervalDays)) &&
-      (entry.lastReviewedAt === undefined || validScheduleNumber(entry.lastReviewedAt));
+    return validScheduleNumber(value(entry, "dueAt")) && value(entry, "dueAt") > 0 &&
+      (!field(entry, "intervalDays") || validScheduleNumber(value(entry, "intervalDays"))) &&
+      (!field(entry, "lastReviewedAt") || validScheduleNumber(value(entry, "lastReviewedAt")));
   }
   function mergeReviewEntries(a, b) {
     a = a || {}; b = b || {};
@@ -173,70 +267,119 @@
   }
   function migrateReviewIds(allQs) {
     if (!Array.isArray(allQs) || !allQs.length) { return { migrated: 0, skipped: 0, reason: "no-questions" }; }
-    var records = store.get("review", {}), migrated = 0, skipped = 0;
+    var source = reviewSource(), records, migrated = 0, skipped = 0, held = false;
+    if (source.corrupt) return { migrated: 0, skipped: allQs.length, reason: "historical-state-held" };
+    try { records = jsonCopy(source.state); }
+    catch (e) {
+      var blockedRows = allQs.filter(function (q) {
+        if (!q || !q.id || !dataObject(source.state)) return true;
+        var oldKey = legacyQKey(q), d = Object.getOwnPropertyDescriptor(source.state, oldKey);
+        return oldKey !== qKey(q) && d && d.enumerable;
+      }).length;
+      return { migrated: 0, skipped: blockedRows, reason: "serialization-failed" };
+    }
+    if (!dataObject(records)) return { migrated: 0, skipped: allQs.length, reason: "historical-state-held" };
+    var collisionFields = ["seen", "miss", "ok", "box", "last", "src", "dueAt", "intervalDays", "lastReviewedAt", "lapses"];
+    function compatible(e) {
+      return dataObject(e) && ["seen", "miss", "ok"].every(function (k) { return knownCount(e, k); }) &&
+        !!field(e, "last") && validScheduleNumber(value(e, "last")) &&
+        !!field(e, "box") && typeof value(e, "box") === "number" && isFinite(value(e, "box")) &&
+        (!field(e, "src") || value(e, "src") === null || typeof value(e, "src") === "string") &&
+        Object.keys(e).every(function (k) { return collisionFields.indexOf(k) >= 0; });
+    }
     allQs.forEach(function (q) {
       if (!q || !q.id) { skipped++; return; }
       var oldKey = legacyQKey(q), newKey = qKey(q);
-      if (oldKey === newKey || !records[oldKey]) return;
-      if (records[newKey]) { records[newKey] = mergeReviewEntries(records[newKey], records[oldKey]); }
-      else { records[newKey] = records[oldKey]; }
+      if (oldKey === newKey || !field(records, oldKey)) return;
+      var old = value(records, oldKey), current = value(records, newKey);
+      if (!dataObject(old) || (field(records, newKey) && (!compatible(old) || !compatible(current)))) { skipped++; held = true; return; }
+      put(records, newKey, field(records, newKey) ? mergeReviewEntries(current, old) : old);
       delete records[oldKey]; migrated++;
     });
-    store.set("review", records);
+    if (migrated) {
+      var disposition = commitReview(records);
+      if (!disposition.persistence) return { migrated: 0, skipped: skipped + migrated, reason: disposition.reason || "storage-unavailable" };
+    }
     store.set(REVIEW_ID_MIGRATION_KEY, { lastRunAt: Date.now(), migrated: migrated, skipped: skipped });
     try { analytics.track("review_ids_migrated", { migrated: migrated, skipped: skipped }); } catch (e) {}
-    return { migrated: migrated, skipped: skipped, reason: "complete" };
+    return { migrated: migrated, skipped: skipped, reason: held ? "historical-state-held" : "complete" };
   }
   /* ---------- spaced-repetition schedule (time-based) ---------- */
   // Days until a card is due again, by Leitner box (0 = same session).
   var BOX_INTERVALS = [0, 1, 3, 7, 14, 30];
-  function _weak(e) { return (e.miss > e.ok) || (e.miss > 0 && e.box <= 1); }
+  function _weak(e) { return dataObject(e) && ((knownCount(e, "miss") && knownCount(e, "ok") && value(e, "miss") > value(e, "ok")) ||
+    (knownCount(e, "miss") && knownBox(e) && value(e, "miss") > 0 && value(e, "box") <= 1)); }
   // Positive numeric schedules are independent of weakness. Only legacy missing/zero
   // dates retain weakness-only eligibility; malformed dates are held, not coerced.
   function _dueForReview(e, now) {
-    if (!e) return false;
-    if (e.dueAt === undefined || e.dueAt === 0) return _weak(e);
-    return validScheduleNumber(e.dueAt) && e.dueAt > 0 && e.dueAt <= now;
+    if (!dataObject(e)) return false;
+    var d = Object.getOwnPropertyDescriptor(e, "dueAt"), due = value(e, "dueAt");
+    if (d && !field(e, "dueAt")) return false;
+    if (due === undefined || due === 0) return _weak(e);
+    return validScheduleNumber(due) && due > 0 && due <= now;
   }
   var review = {
     migrateIds: migrateReviewIds,
     record: function (q, correct) {
-      if (!q) return;
+      if (!q) return reviewResult("no-question", "none", "no-question");
       var key = qKey(q);
-      var r = store.get("review", {});
-      var e = r[key] || { seen: 0, miss: 0, ok: 0, box: 0, last: 0, src: q.source || null };
+      var source = reviewSource(), r;
+      if (source.corrupt) return reviewResult("held", "none", "historical-state-held");
+      try { r = jsonCopy(source.state); }
+      catch (err) { return reviewResult("held", "none", "serialization-failed"); }
+      if (!dataObject(r) || (field(r, key) && !dataObject(value(r, key)))) return reviewResult("held", "none", "historical-state-held");
+      var e = field(r, key) ? value(r, key) : { seen: 0, miss: 0, ok: 0, box: 0, last: 0, src: q.source || null };
       var now = Date.now();
-      e.seen += 1; e.last = now; e.lastReviewedAt = now;
-      if (correct) { e.ok += 1; e.box = Math.min(5, e.box + 1); }
-      else { e.miss += 1; e.box = 0; e.lapses = (e.lapses || 0) + 1; }
-      // correct -> schedule further out by box; miss -> bring it back in ~10 minutes (this session)
-      e.intervalDays = correct ? BOX_INTERVALS[e.box] : 0;
-      e.dueAt = correct ? (now + e.intervalDays * 864e5) : (now + 6e5);
-      r[key] = e; store.set("review", r);
+      if (!validScheduleNumber(now)) return reviewResult("held", "none", "serialization-failed");
+      var completeCounts = ["seen", "miss", "ok"].every(function (k) { return knownCount(e, k); }), partial = !completeCounts;
+      ["seen", correct ? "ok" : "miss"].forEach(function (k) {
+        if (knownCount(e, k) && e[k] < Number.MAX_SAFE_INTEGER) e[k] += 1;
+        else partial = true;
+      });
+      put(e, "last", now);
+      if (correct && !knownBox(e)) partial = true;
+      else {
+        put(e, "box", correct ? Math.min(5, e.box + 1) : 0);
+        put(e, "lastReviewedAt", now);
+        put(e, "intervalDays", correct ? BOX_INTERVALS[e.box] : 0);
+        put(e, "dueAt", correct ? now + e.intervalDays * 864e5 : now + 6e5);
+      }
+      if (field(e, "lapses")) {
+        if (!knownCount(e, "lapses")) partial = true;
+        else if (!correct) { if (e.lapses < Number.MAX_SAFE_INTEGER) e.lapses++; else partial = true; }
+      } else if (!correct) { if (completeCounts) put(e, "lapses", 1); else partial = true; }
+      put(r, key, e);
+      var disposition = commitReview(r);
+      if (!disposition.persistence) return reviewResult("held", "none", disposition.reason || "storage-unavailable");
+      return reviewResult(partial ? "partial" : "recorded", disposition.persistence,
+        partial ? "historical-fields-unknown" : (disposition.persistence === "durable" ? "complete" : "storage-unavailable"));
     },
     // scheduling info for the after-run summary ("returns in N days")
-    schedule: function (q) { var e = store.get("review", {})[qKey(q)]; if (!e) return null; return { box: e.box || 0, intervalDays: e.intervalDays || 0, dueAt: e.dueAt || 0, lapses: e.lapses || 0 }; },
-    isWeak: function (q) { var e = store.get("review", {})[qKey(q)]; return e ? _weak(e) : false; },
+    schedule: function (q) { var r = store.get("review", {}), e = dataObject(r) ? value(r, qKey(q)) : null; if (!dataObject(e)) return null; return { box: value(e, "box") || 0, intervalDays: value(e, "intervalDays") || 0, dueAt: value(e, "dueAt") || 0, lapses: value(e, "lapses") || 0 }; },
+    isWeak: function (q) { var r = store.get("review", {}); return dataObject(r) && _weak(value(r, qKey(q))); },
     /* return up to n due questions from allQs, ranked by the existing
        misses/box/overdue arithmetic. */
     queue: function (allQs, n) {
       n = n || 10;
       var r = store.get("review", {});
+      if (!dataObject(r)) return [];
       var scored = [];
       var now = Date.now();
       (allQs || []).forEach(function (q) {
-        var e = r[qKey(q)];
+        var e = value(r, qKey(q));
         if (_dueForReview(e, now)) {
-          var overdue = e.dueAt ? Math.max(0, now - e.dueAt) / 864e5 : 1;
-          scored.push({ q: q, rank: (e.miss * 10) - e.box + (5 - Math.min(5, e.ok)) + Math.min(20, overdue) });
+          var due = value(e, "dueAt"), overdue = due ? Math.max(0, now - due) / 864e5 : 1;
+          var rank = knownCount(e, "miss") && knownCount(e, "ok") && knownBox(e) ?
+            (e.miss * 10) - e.box + (5 - Math.min(5, e.ok)) + Math.min(20, overdue) : -Infinity;
+          scored.push({ q: q, rank: rank, order: scored.length });
         }
       });
-      scored.sort(function (a, b) { return b.rank - a.rank; });
+      scored.sort(function (a, b) { return a.rank === b.rank ? a.order - b.order : b.rank - a.rank; });
       return scored.slice(0, n).map(function (x) { return x.q; });
     },
     count: function () {
       var r = store.get("review", {}); var now = Date.now(); var c = 0;
-      for (var k in r) { if (r.hasOwnProperty(k) && _dueForReview(r[k], now)) c++; }
+      if (dataObject(r)) Object.keys(r).forEach(function (k) { if (_dueForReview(value(r, k), now)) c++; });
       return c;
     }
   };
@@ -340,7 +483,16 @@
         if (remote.pack !== PACKID) return { applied: false, reason: "pack-mismatch" };
         if (remote.updatedAt && remote.updatedAt <= lastApplied) return { applied: false, reason: "stale" };
         var keys = Object.keys(remote.data).filter(function (k) { return SYNC_KEYS.indexOf(k) >= 0; }), i;
-        for (i = 0; i < keys.length; i++) { try { store.set(keys[i], remote.data[keys[i]]); } catch (e) {} }
+        if (keys.indexOf("review") >= 0) {
+          var reviewWrite = prepareInboundReview(Object.getOwnPropertyDescriptor(remote.data, "review"));
+          if (reviewWrite.reason) return { applied: false, reason: reviewWrite.reason };
+          if (!reviewWrite.noop) {
+            var accepted = acceptReview(reviewWrite.prepared);
+            if (!accepted.persistence) return { applied: false, reason: accepted.reason === "serialization-failed" ?
+              "review-serialization-failed" : "review-storage-unavailable" };
+          }
+        }
+        for (i = 0; i < keys.length; i++) { if (keys[i] !== "review") { try { store.set(keys[i], remote.data[keys[i]]); } catch (e) {} } }
         try { store.set("lastSyncApplied", remote.updatedAt || Date.now()); } catch (e) {}
         analytics.track("sync_pull", { keys: keys.length });
         return { applied: true, keys: keys.length };

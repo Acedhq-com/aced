@@ -1,5 +1,6 @@
 /* Canonical question-ID identity + review migration tests (Copilot part 2, item 8). Run: node aced-core.test.js */
 "use strict";
+require("./tools/lib/question-id-integrity-tests")("core");
 var assert = require("assert");
 var _mem = {};
 global.localStorage = { getItem: function (k) { return k in _mem ? _mem[k] : null; }, setItem: function (k, v) { _mem[k] = String(v); }, removeItem: function (k) { delete _mem[k]; } };
@@ -241,6 +242,10 @@ console.log("aced-core.test.js: authored-topic prototype safety passed");
   assert.deepStrictEqual(plain(simple.core.store.get("review", {})[simpleQ.id]), canonical);
   console.log("aced-core.test.js: C05 migration ordering/ties/coherent fallback/invalid schedules/lapses/pack isolation/idempotency passed");
 })();
+require("./tools/lib/question-id-inbound-tests")().catch(function () {
+  console.error("question-ID inbound desired invariant failed");
+  process.exitCode = 1;
+});
 
 // ---- Cross-pack sync containment (audit G1) ----
 // A signed-in pull must ask the server for THIS page's pack and must never apply another

@@ -68,6 +68,74 @@
     return "pack-" + (slug || "study") + "-" + suffix;
   }
   function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  // Review/learning only: literal own data, never display defaults as history.
+  function field(o, k) { var d = o && Object.getOwnPropertyDescriptor(o, k); return d && d.enumerable && own(d, "value") ? d : null; }
+  function value(o, k) { var d = field(o, k); return d ? d.value : undefined; }
+  function put(o, k, v) { Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true }); }
+  function dataObject(v) {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+    var p = Object.getPrototypeOf(v);
+    while (p) {
+      var d = Object.getOwnPropertyDescriptor(p, "constructor");
+      var name = d && own(d, "value") && typeof d.value === "function" ? Object.getOwnPropertyDescriptor(d.value, "name") : null;
+      if (d && !d.enumerable && name && own(name, "value") && name.value !== "Object") return false;
+      p = Object.getPrototypeOf(p);
+    }
+    return true;
+  }
+  function jsonCopy(v, stack) {
+    if (v === null || typeof v === "string" || typeof v === "boolean") return v;
+    if (typeof v === "number" && isFinite(v)) return v;
+    if (!v || typeof v !== "object" || (!Array.isArray(v) && !dataObject(v))) throw new Error("serialization-failed");
+    stack = stack || [];
+    if (stack.indexOf(v) >= 0 || Object.getOwnPropertySymbols(v).length) throw new Error("serialization-failed");
+    stack.push(v);
+    var out = Array.isArray(v) ? Object.setPrototypeOf([], null) : Object.create(null), keys = Object.keys(v), names = Object.getOwnPropertyNames(v);
+    if (names.some(function (k) { return !own(Object.getOwnPropertyDescriptor(v, k), "value"); })) throw new Error("serialization-failed");
+    if (Array.isArray(v) && (names.length !== v.length + 1 || keys.length !== v.length || keys.some(function (k, i) { return k !== String(i); }))) throw new Error("serialization-failed");
+    keys.forEach(function (k) { var d = field(v, k); if (!d) throw new Error("serialization-failed"); put(out, k, jsonCopy(d.value, stack)); });
+    stack.pop(); return out;
+  }
+  function progressWriteContext(key) {
+    var raw, source = "none", classification, snapshot = null;
+    if (persistent) {
+      try { raw = storage().getItem(key); memory[key] = raw; source = "durable"; }
+      catch (e) { persistent = false; }
+    }
+    if (source === "none" && own(memory, key)) { raw = memory[key]; source = "memory"; }
+    if (source === "none") classification = "unavailable";
+    else if (raw == null) classification = "absent";
+    else {
+      try { snapshot = JSON.parse(raw); classification = "present"; }
+      catch (e) { classification = "corrupt"; }
+    }
+    // Keep a private predecessor; mutation of the detached public snapshot can
+    // never turn a failed preparation into an exposed aggregate-only write.
+    var original = classification === "present" ? JSON.parse(raw) : null, used = false;
+    return {
+      classification: classification, source: source, snapshot: snapshot,
+      commit: function (candidate) {
+        if (used) return { accepted: false, persistence: "none", reason: "storage-unavailable" };
+        used = true;
+        var prepared;
+        try {
+          if (classification === "corrupt") return { accepted: false, persistence: "none", reason: "serialization-failed" };
+          if (classification === "present") jsonCopy(original);
+          prepared = JSON.stringify(jsonCopy(candidate));
+        } catch (e) { return { accepted: false, persistence: "none", reason: "serialization-failed" }; }
+        if (persistent) {
+          try { storage().setItem(key, prepared); memory[key] = prepared; return { accepted: true, persistence: "durable" }; }
+          catch (e) { persistent = false; }
+        }
+        try { memory[key] = prepared; return { accepted: true, persistence: "memory" }; }
+        catch (e) { return { accepted: false, persistence: "none", reason: "storage-unavailable" }; }
+      }
+    };
+  }
+  function learningWriteContext(id) {
+    if (!validPackId(id)) throw new Error("Invalid pack identity.");
+    return progressWriteContext("aced:" + id + ":learning_v1");
+  }
   function normalizeQuestion(raw, index) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       throw new Error("Question " + (index + 1) + " must be an object with a question and answer.");
@@ -321,7 +389,9 @@
     data.packs.unshift(pack);
     write(KEY, data);
     if (existing) {
-      var history = learning(pack.id), review = read("aced:" + pack.id + ":review", {}), reset = false;
+      var learningContext = learningWriteContext(pack.id), reviewContext = progressWriteContext("aced:" + pack.id + ":review");
+      var history = learningContext.snapshot, review = reviewContext.snapshot, resetHistory = false, resetReview = false;
+      var answers = dataObject(history) ? value(history, "answers") : null;
       var oldQuestions = new Map(existing.questions.map(function (q) { return [q.id, q]; }));
       pack.questions.forEach(function (q) {
         var old = oldQuestions.get(q.id);
@@ -329,13 +399,12 @@
         var before = old.choices.length ? old.choices[old.answer] : old.answer;
         var after = q.choices.length ? q.choices[q.answer] : q.answer;
         if (before !== after || old.kind !== q.kind) {
-          delete history.answers[q.id]; delete review[q.id]; reset = true;
+          if (dataObject(answers) && dataObject(value(answers, q.id))) { delete answers[q.id]; resetHistory = true; }
+          if (dataObject(review) && dataObject(value(review, q.id))) { delete review[q.id]; resetReview = true; }
         }
       });
-      if (reset) {
-        write("aced:" + pack.id + ":learning_v1", history);
-        write("aced:" + pack.id + ":review", review);
-      }
+      if (resetHistory) learningContext.commit(history);
+      if (resetReview) reviewContext.commit(review);
     }
     return pack;
   }
@@ -389,21 +458,26 @@
     return loaded[id];
   }
   function learning(id) {
-    var value = read("aced:" + id + ":learning_v1", null);
-    if (!value || typeof value !== "object" || Array.isArray(value)) value = {};
-    if (!value.answers || typeof value.answers !== "object" || Array.isArray(value.answers)) value.answers = {};
+    var context = learningWriteContext(id), projected = context.snapshot;
+    if (!dataObject(projected)) projected = {};
+    if (!dataObject(value(projected, "answers"))) put(projected, "answers", {});
     ["attempts", "correct", "selfRated"].forEach(function (key) {
-      value[key] = Math.max(0, Number(value[key]) || 0);
+      var v = value(projected, key), n = v == null || ["string", "number", "boolean"].indexOf(typeof v) >= 0 ? Number(v) : 0;
+      put(projected, key, isFinite(n) ? Math.max(0, n) : 0);
     });
-    return value;
+    return projected;
   }
   function progress(id, questions) {
     var s = learning(id), count = Array.isArray(questions) ? questions.length : Number(questions) || 0;
     var ids = Array.isArray(questions) ? questions.map(function (q) { return q.id; }) : Object.keys(s.answers || {});
     var strength = 0, practiced = 0;
     ids.forEach(function (key) {
-      var answer = (s.answers || {})[key];
-      if (answer) { practiced++; strength += Math.max(0, Math.min(2, Number(answer.strength) || 0)); }
+      var answer = value(s.answers, key);
+      if (dataObject(answer)) {
+        practiced++;
+        var v = value(answer, "strength"), n = v == null || ["string", "number", "boolean"].indexOf(typeof v) >= 0 ? Number(v) : 0;
+        strength += isFinite(n) ? Math.max(0, Math.min(2, n)) : 0;
+      }
     });
     return { pct: count ? Math.round(strength / (count * 2) * 100) : 0,
       practiced: practiced, count: count, attempts: s.attempts || 0, correct: s.correct || 0, selfRated: s.selfRated || 0 };
@@ -469,9 +543,10 @@
     normalize: normalize, normalizeQuestion: normalizeQuestion, parse: parse,
     list: list, get: get, save: save, remove: remove, load: load, starter: starter,
     activity: activity, touch: touch, lastPack: lastPack, progress: progress, learning: learning,
+    learningWriteContext: learningWriteContext,
     saveLearning: function (packId, value) {
-      if (!validPackId(packId)) throw new Error("Invalid pack identity.");
-      return write("aced:" + packId + ":learning_v1", value);
+      var disposition = learningWriteContext(packId).commit(value);
+      return disposition.accepted && disposition.persistence === "durable";
     },
     exportText: exportText, shareUrl: shareUrl, importShared: importShared, encode: encode, decode: decode,
     stashDraft: stashDraft, getDraft: getDraft, newId: newId, hash: hash,

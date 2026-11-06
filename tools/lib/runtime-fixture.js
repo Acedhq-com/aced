@@ -23,7 +23,7 @@ globalThis.__runtime = {
   store:ACED_STORE, start, saveUnlocked, checkUnlocks, buyJoker, mk, play, detectHand,
   openInsight, renderMastery, renderReadiness, cardHTML, showCardTip,
   renderAuditPicker, beginAuditQuestion, renderAudit, submitAudit, drillModule,
-  runQuiz, launchReview, explanationsView, studyReport, runInfoView,
+  runQuiz, launchReview, updateReviewBadge, explanationsView, studyReport, runInfoView,
   readinessReport, nemesisRise, codexView, deckView, calibGridHTML, calibData,
   fastAnimations(){
     wait=async function(){};
