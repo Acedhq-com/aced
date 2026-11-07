@@ -434,6 +434,29 @@ async function run(options={}){
     }
     // This checks the owned source contract, not browser rectangles or CSS layout.
   });
+  await test("accessibility source: owned board target minima remain unconditional across orientations",()=>{
+    const arms=[".topbar .tbtn",".topbar .rankpill",".sidebar .ribtn",".actions .act"];
+    const declarations=["min-width:44px","min-height:44px","box-sizing:border-box"];
+    const rule=arms.join(",")+"{"+declarations.join(";")+"}",html=read("study.html");
+    function check(source){
+      const parts=source.split('<style id="aced-product-success-layout">');assert.equal(parts.length,2);
+      const style=parts[1].split("</style>")[0];
+      assert.equal(style.split(rule).length,2,"one exact owned minimum-target rule");
+      assert.ok(style.trimStart().startsWith(rule+"\n"),"known first rule is active and unconditional");
+      assert.ok(style.split("@media")[0].includes(rule),"minimum targets must not depend on media");
+    }
+    check(html);
+    const mutants=[
+      "",
+      ...arms.map(omitted=>arms.filter(arm=>arm!==omitted).join(",")+"{"+declarations.join(";")+"}"),
+      ...declarations.map(omitted=>arms.join(",")+"{"+declarations.filter(value=>value!==omitted).join(";")+"}"),
+      rule.replace("min-height:44px","min-height:43px"),
+      rule.replace("min-width:44px","min-width:43px"),
+      "@media(max-width:480px){"+rule+"}"
+    ];
+    for(const replacement of mutants){const changed=html.replace(rule,replacement);assert.notEqual(changed,html);assert.throws(()=>check(changed));}
+    // Bounded recognition of the owned first rule, not a CSS parser or native target/viewport proof.
+  });
   await test("accessibility source: finite owned labels and active actions have contrasting palettes",()=>{
     const html=read("study.html"),parts=html.split('<style id="aced-product-success-layout">');assert.equal(parts.length,2);const style=parts[1].split("</style>")[0];
     function rule(selector){const p=style.split("\n"+selector+"{");assert.equal(p.length,2);return p[1].split("}")[0];}
