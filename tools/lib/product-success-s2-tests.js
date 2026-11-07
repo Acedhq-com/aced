@@ -106,6 +106,33 @@ async function run(options={}){
     }
     // This checks the owned source contract, not browser rectangles or CSS layout.
   });
+  await test("accessibility source: finite owned labels and active actions have contrasting palettes",()=>{
+    const html=read("study.html"),parts=html.split('<style id="aced-product-success-layout">');assert.equal(parts.length,2);const style=parts[1].split("</style>")[0];
+    function rule(selector){const p=style.split("\n"+selector+"{");assert.equal(p.length,2);return p[1].split("}")[0];}
+    function color(body){const m=body.match(/(?:^|;)color:(#[0-9a-f]{6})(?:!important)?(?:;|$)/i);assert.ok(m);return m[1];}
+    function luminance(hex){const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+    function contrast(a,b){const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+    const labels=rule(".topbar #deckBtn,.topbar #notesBtn,.topbar #acctBtn,.topbar #mute,.sidebar .blind .bk,.sidebar .rscore .rsk,.sidebar .handline .ht,.sidebar .ctk,#hand .card .modk,.playarea #phLabel,.playarea .ph,.actions .sortlbl");
+    assert.equal(color(labels),"#d8f5d8");
+    const backgrounds=["#040904","#06100a","#0a160a","#05100a"];for(const name of ["panel","panel2","felt1","felt2","felt3"]){const bg=html.match(new RegExp("--"+name+":(#[0-9a-f]{6});","i"))?.[1];assert.ok(bg);backgrounds.push(bg);}
+    for(const bg of backgrounds){assert.ok(html.includes(bg));assert.ok(contrast(color(labels),bg)>=4.5);}
+    const actions=rule(".sidebar #runInfoBtn,.actions #play,.actions #discard,#modal button.act.play,#modal button.act.disc");assert.ok(actions.includes("text-shadow:none!important"));
+    for(const name of ["b-blue","b-red","red"]){const bg=html.match(new RegExp("--"+name+":(#[0-9a-f]{6});","i"))?.[1];assert.ok(bg);assert.ok(contrast(color(actions),bg)>=4.5);}
+    // Known source palette arithmetic is not a computed-style/native contrast measurement.
+  });
+  await test("accessibility source: owned topic toggle and selected modal controls retain targets and focus",()=>{
+    const html=read("study.html"),parts=html.split('<style id="aced-product-success-layout">');assert.equal(parts.length,2);const style=parts[1].split("</style>")[0];
+    function rule(selector){const p=style.split("\n"+selector+"{");assert.equal(p.length,2);return p[1].split("}")[0];}
+    const toggle=rule(".mastery #mToggle"),modal=rule("#modal button.act"),focus=rule(".mastery #mToggle:focus-visible,#modal button.act:focus-visible");
+    for(const body of [toggle,modal]){assert.ok(body.includes("min-height:44px"));assert.ok(body.includes("min-width:44px"));assert.ok(body.includes("box-sizing:border-box"));}
+    assert.ok(toggle.includes("color:#d8f5d8"));assert.ok(toggle.includes("font:14px/1.1 'VT323',monospace"));assert.ok(focus.includes("outline:3px solid #5cffea"));assert.ok(focus.includes("outline-offset:3px"));
+    const f=runtime({read});f.api.start();const panel=f.document.getElementById("masteryPanel"),button=f.document.getElementById("mToggle");
+    button.onclick();assert.equal(panel.classList.contains("collapsed"),true);assert.equal(button.textContent,"SHOW");
+    button.onclick();assert.equal(panel.classList.contains("collapsed"),false);assert.equal(button.textContent,"HIDE");
+    f.document.getElementById("helpBtn").onclick();assert.ok(f.modal().includes('id="replayTut"'));assert.ok(f.modal().includes('id="closeRules"'));assert.equal(f.document.getElementById("overlay").classList.contains("show"),true);
+    f.document.getElementById("closeRules").onclick();assert.equal(f.document.getElementById("overlay").classList.contains("show"),false);assert.equal(f.requests.length,0);
+    // Actual callbacks plus owned source minima do not assert browser hit rectangles.
+  });
   await test("mechanics control: existing counters, arithmetic and Daily points remain genuine",()=>{
     const f=runtime({read,weights:"({A:1})"});f.api.start();
     assert.equal(f.api.readinessPct(),0);f.api.addMastery("A.one",1);assert.equal(f.api.masteryPct("A.one"),2);assert.equal(f.api.readinessPct(),1);
