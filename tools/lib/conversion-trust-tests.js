@@ -43,7 +43,7 @@ function fixture(options = {}) {
   let now = 1000, timerID = 0, aborts = 0;
   function matches(node, selector) {
     if (selector === "[id]") return !!node.id;
-    if (selector === ".capnote") return node.className.split(/\s+/).includes("capnote");
+    if (/^\.[\w-]+$/.test(selector)) return node.className.split(/\s+/).includes(selector.slice(1));
     const m = selector.match(/^(\w+)?(?:\[([-\w]+)(?:="([^"]*)")?\])?$/);
     return !!m && (!m[1] || node.tag === m[1]) &&
       (!m[2] || node.hasAttribute(m[2]) && (m[3] === undefined || node.getAttribute(m[2]) === m[3]));
@@ -85,8 +85,9 @@ function fixture(options = {}) {
     nodes.push(n); return n;
   }
   const body = element("body"); body.isConnected = true;
+  const head = element("head"); head.isConnected = true;
   const document = {
-    readyState: options.loading ? "loading" : "complete", body, activeElement: null,
+    readyState: options.loading ? "loading" : "complete", body, head, activeElement: null,
     getElementById(id) { return nodes.find(n => n.isConnected && n.id === id) || null; },
     querySelectorAll(s) { return nodes.filter(n => n.isConnected && matches(n, s)); },
     createElement: element,
@@ -98,9 +99,15 @@ function fixture(options = {}) {
       const a = attrs(m[1]);
       if (a.id !== "capForm" && !Object.hasOwn(a, "data-aced-notify")) continue;
       const parent = element("section"), form = element("form", a); body.appendChild(parent); parent.appendChild(form);
-      for (const input of m[2].matchAll(/<input\b([^>]*)>/gi)) form.appendChild(element("input", attrs(input[1])));
+      for (const label of m[2].matchAll(/<label\b([^>]*)>([\s\S]*?)<\/label>/gi)) {
+        const n = element("label", attrs(label[1])); n.textContent = label[2]; form.appendChild(n);
+      }
+      const row = m[2].match(/<div\b([^>]*class="formrow"[^>]*)>/i);
+      const controls = row ? element("div", attrs(row[1])) : form;
+      if (row) form.appendChild(controls);
+      for (const input of m[2].matchAll(/<input\b([^>]*)>/gi)) controls.appendChild(element("input", attrs(input[1])));
       const b = m[2].match(/<button\b([^>]*)>([\s\S]*?)<\/button>/i);
-      if (b) { const button = element("button", attrs(b[1])); button.textContent = b[2].replace(/<[^>]*>/g, ""); form.appendChild(button); }
+      if (b) { const button = element("button", attrs(b[1])); button.textContent = b[2].replace(/<[^>]*>/g, ""); controls.appendChild(button); }
       const note = html.slice(m.index).match(/<div\b([^>]*class="capnote"[^>]*)>/i);
       if (note) {
         const n = element("div", attrs(note[1]));
@@ -522,6 +529,82 @@ module.exports = async function () {
     const rest = html.replace(/^     <li>(?:Runs in your browser\.|Supported notes are processed)[^\n]*<\/li>$/m, "")
       .replace(/^   <div class="q"><b>Do I need an account\?<\/b>[^\n]*<\/div>$/m, "");
     assert.equal(hash(rest), "75fdcd3ee0c3826c18b011ba3c2d2b9f8c092402e23858ac56245b06df33dcac");
+  });
+  for (const page of ["index.html", "lsat.html", "mcat.html", "nclex.html", "bar-exam.html", "usmle.html"]) {
+    await test("T02 v1.1 owned component markers and one static sheet " + page, async () => {
+      const f = fixture({ page });
+      const sheets = () => f.document.querySelectorAll("style[data-aced-notify-style]");
+      assert.equal(sheets().length, 1);
+      const sheet = sheets()[0], css = sheet.textContent;
+      assert.ok(f.form.hasAttribute("data-aced-notify-form"));
+      assert.ok(f.input.hasAttribute("data-aced-notify-email"));
+      assert.ok(f.button.hasAttribute("data-aced-notify-submit"));
+      assert.ok(f.note.hasAttribute("data-aced-notify-status"));
+      const row = page === "index.html" ? f.form : f.input.parentNode;
+      assert.ok(row.hasAttribute("data-aced-notify-row"));
+      assert.ok(row.contains(f.input)); assert.ok(row.contains(f.button));
+      const hp = f.form.querySelector('input[name="company"]');
+      if (hp) assert.equal(Object.keys(hp.attrs).some(k => k.startsWith("data-aced-notify-")), false);
+      const note = f.note, label = f.form.querySelector("label"), parent = f.form.parentNode;
+      f.duplicate(); f.duplicate(); f.init(); f.init();
+      assert.equal(sheets().length, 1); assert.equal(sheets()[0], sheet); assert.equal(sheet.textContent, css);
+      assert.equal(f.note, note); assert.equal(f.form.parentNode, parent);
+      assert.equal(f.form.querySelector("label"), label); assert.equal(f.input.parentNode, row);
+      assert.equal(f.form.listeners.submit.length, 1); assert.equal(f.input.listeners.input.length, 1);
+      const later = f.addPage("lsat.html"); f.duplicate();
+      assert.ok(later.hasAttribute("data-aced-notify-form")); assert.equal(sheets().length, 1);
+      f.submit(); f.submit(); await flush(); assert.equal(f.requests.length, 1);
+      assert.equal(f.note.textContent, copy.confirmed); assert.equal(f.storage.length, 0);
+    });
+  }
+  await test("T02 v1.1 no matching forms means no stylesheet or component mutation", async () => {
+    const f = fixture({ loading: true }); f.form.removeAttribute("data-aced-notify");
+    f.init(); f.duplicate(); f.init();
+    assert.equal(f.document.querySelectorAll("style[data-aced-notify-style]").length, 0);
+    assert.equal(f.form.listeners.submit, undefined); assert.equal(f.input.listeners.input, undefined);
+    assert.equal(f.form.hasAttribute("data-aced-notify-form"), false);
+    assert.equal(f.note.hasAttribute("data-aced-notify-status"), false);
+    assert.equal(f.requests.length, 0); assert.equal(f.storage.length, 0);
+  });
+  await test("T08 v1.1 static selector arms and geometry/focus rules (not computed browser layout)", async () => {
+    const f = fixture(), sheet = f.document.querySelectorAll("style[data-aced-notify-style]")[0];
+    assert.ok(sheet); const css = sheet.textContent;
+    assert.equal(/url\s*\(|@import|@font-face|animation|--[\w-]+\s*:|(?:^|[,{}])\s*(?:body|html|:root|\*)/i.test(css), false);
+    assert.equal(css.includes(address), false); assert.equal(css.includes(other), false);
+    let arms = 0;
+    for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      if (m[1].trim().startsWith("@media")) continue;
+      for (const arm of m[1].split(",")) {
+        arms++; assert.match(arm, /\[data-aced-notify-(?:form|row|email|submit|status)\]/);
+      }
+    }
+    assert.ok(arms > 8);
+    assert.match(css, /@media\s*\(max-width:\s*480px\)/);
+    assert.match(css, /min-width:\s*0/); assert.match(css, /min-height:\s*44px/);
+    assert.match(css, /box-sizing:\s*border-box/); assert.match(css, /max-width:\s*100%/);
+    assert.match(css, /flex-direction:\s*column/); assert.match(css, /align-items:\s*stretch/);
+    assert.match(css, /overflow-wrap:\s*anywhere/); assert.match(css, /:focus-visible/);
+    assert.match(css, /outline:\s*2px solid #5cffea/);
+    assert.match(css, /data-aced-notify-status[^\{]*\{[^}]*color:\s*#d8f5d8/i);
+    assert.match(css, /data-aced-notify-status[^\{]*\.ok[^\{]*\{[^}]*color:\s*#9be36b/i);
+    for (const id of ["capEmail", "em-lsat", "em-mcat", "em-nclex", "em-bar-exam", "em-usmle"])
+      assert.ok(css.includes('label[for="' + id + '"]'));
+  });
+  await test("T02 v1.1 unmarked lookalikes, unrelated labels and ancestors stay unowned", async () => {
+    const f = fixture({ loading: true }), create = (tag, values) => {
+      const n = f.document.createElement(tag); for (const [k, v] of Object.entries(values)) n.setAttribute(k, v); return n;
+    };
+    const parent = create("section", {}), fake = create("form", { class: "formrow" });
+    const input = create("input", { type: "email", id: "lookalike" }), button = create("button", { type: "submit" });
+    const note = create("div", { class: "capnote ok" }), label = create("label", { for: "lookalike" });
+    f.document.body.appendChild(parent); parent.appendChild(fake);
+    for (const n of [label, input, button, note]) fake.appendChild(n);
+    const unrelated = create("label", { for: "unrelated" }); f.form.appendChild(unrelated);
+    const original = [parent, fake, input, button, note, label, unrelated].map(n => JSON.stringify(n.attrs));
+    f.init(); f.duplicate(); f.init();
+    [parent, fake, input, button, note, label, unrelated].forEach((n, i) => assert.equal(JSON.stringify(n.attrs), original[i]));
+    assert.equal(fake.listeners.submit, undefined); assert.equal(f.form.parentNode.hasAttribute("data-aced-notify-form"), false);
+    assert.equal(f.requests.length, 0); assert.equal(f.storage.length, 0);
   });
   return { passed, failed };
 };

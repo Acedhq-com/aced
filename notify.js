@@ -51,11 +51,39 @@
     return !!ok && Object.prototype.hasOwnProperty.call(ok, "value") && ok.value === true &&
       (!error || (Object.prototype.hasOwnProperty.call(error, "value") && !error.value));
   }
+  function componentStyles() {
+    if (document.querySelectorAll("style[data-aced-notify-style]").length) return;
+    var sheet = document.createElement("style");
+    sheet.setAttribute("data-aced-notify-style", "v1");
+    // Fixed component rules only: no values from a form, response or configuration.
+    sheet.textContent = [
+      "form[data-aced-notify-form],[data-aced-notify-row]{min-width:0;max-width:100%;flex-wrap:wrap}",
+      "form[data-aced-notify-form] input[data-aced-notify-email]{box-sizing:border-box;min-width:0;max-width:100%;min-height:44px;border-color:#5cffea}",
+      "form[data-aced-notify-form] button[data-aced-notify-submit]{box-sizing:border-box;min-width:44px;max-width:100%;min-height:44px;white-space:normal;overflow-wrap:anywhere}",
+      "form[data-aced-notify-form] input[data-aced-notify-email]:focus-visible,form[data-aced-notify-form] button[data-aced-notify-submit]:focus-visible{outline:2px solid #5cffea;outline-offset:2px}",
+      "[data-aced-notify-status].capnote{color:#d8f5d8;max-width:100%;overflow-wrap:anywhere}",
+      "[data-aced-notify-status].capnote.ok{color:#9be36b}",
+      'form[data-aced-notify-form] label[for="capEmail"],form[data-aced-notify-form] label[for="em-lsat"],form[data-aced-notify-form] label[for="em-mcat"],form[data-aced-notify-form] label[for="em-nclex"],form[data-aced-notify-form] label[for="em-bar-exam"],form[data-aced-notify-form] label[for="em-usmle"]{color:#d8f5d8}',
+      "@media(max-width:480px){[data-aced-notify-row]{flex-direction:column;align-items:stretch}form[data-aced-notify-form] input[data-aced-notify-email],form[data-aced-notify-form] button[data-aced-notify-submit]{width:100%}}"
+    ].join("\n");
+    (document.head || document.body).appendChild(sheet);
+  }
+  function markComponent(form, input, button, note) {
+    form.setAttribute("data-aced-notify-form", "");
+    if (input) input.setAttribute("data-aced-notify-email", "");
+    if (button) button.setAttribute("data-aced-notify-submit", "");
+    note.setAttribute("data-aced-notify-status", "");
+    var row = form.classList.contains("formrow") ? form : form.querySelector(".formrow");
+    if (row && input && row.contains(input) && (!button || row.contains(button))) {
+      row.setAttribute("data-aced-notify-row", "");
+    }
+  }
   function wire(form){
     if (Object.prototype.hasOwnProperty.call(form, bound)) return;
     Object.defineProperty(form, bound, { value: true });
     var input = form.querySelector('input[type="email"]'), note = noteFor(form, input);
     var button = form.querySelector('[type="submit"]') || form.querySelector("button");
+    markComponent(form, input, button, note);
     var current = null, revision = 0, result = false;
     if (input) {
       var described = (input.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
@@ -169,6 +197,6 @@
       } catch (_) { finish(op, "unconfirmed"); }
     });
   }
-  function init(){ var fs=document.querySelectorAll("form[data-aced-notify]"); for(var i=0;i<fs.length;i++) wire(fs[i]); }
+  function init(){ var fs=document.querySelectorAll("form[data-aced-notify]"); if(fs.length) componentStyles(); for(var i=0;i<fs.length;i++) wire(fs[i]); }
   if(document.readyState!=="loading") init(); else document.addEventListener("DOMContentLoaded", init);
 })();
