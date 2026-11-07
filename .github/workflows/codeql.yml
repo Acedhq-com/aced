@@ -1,0 +1,22 @@
+name: "CodeQL Advanced (disabled)"
+
+# This advanced CodeQL workflow is intentionally disabled because the repository is
+# using GitHub's default CodeQL setup. GitHub rejects advanced SARIF uploads while
+# default setup is enabled.
+#
+# To re-enable this workflow, disable the repo's default CodeQL setup in GitHub
+# repository settings, then restore the normal trigger configuration.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain disabled state
+        run: |
+          echo "Advanced CodeQL is disabled because default setup is enabled."
+          echo "Disable GitHub default CodeQL setup in repository settings before re-enabling this workflow."
