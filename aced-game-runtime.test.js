@@ -450,3 +450,5 @@ integrityTest("T12/T13 finite accessible library progress text matches own pract
   assert.ok(!/NaN|Infinity/.test(markup));
   assert.equal(f.requests.length, 0);
 });
+
+require("./tools/lib/question-id-feedback-tests")(test);

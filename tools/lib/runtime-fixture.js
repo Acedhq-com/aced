@@ -23,6 +23,8 @@ globalThis.__runtime = {
   store:ACED_STORE, start, saveUnlocked, checkUnlocks, buyJoker, mk, play, detectHand,
   openInsight, renderMastery, renderReadiness, cardHTML, showCardTip,
   renderAuditPicker, beginAuditQuestion, renderAudit, submitAudit, drillModule,
+  get audit(){return AUDIT;}, _qKey, wasMissedEver, addMissedEver, clearMissedEver,
+  renderAcctBtn, openAcctModal, showModal, hideModal, toast,
   runQuiz, launchReview, updateReviewBadge, explanationsView, studyReport, runInfoView,
   readinessReport, nemesisRise, codexView, deckView, calibGridHTML, calibData,
   fastAnimations(){
@@ -62,7 +64,11 @@ function createRuntime(options = {}) {
       // Deliberately capture the pre-sanitizer string. This fixture does NOT
       // pretend to implement DOMPurify or browser HTML parsing/execution.
       replaceChildren(fragment) { this.innerHTML = fragment.markup; },
-      appendChild() {}, remove() {}, setAttribute() {}, addEventListener() {}, focus() {},
+      attrs: {},
+      appendChild() {}, remove() {},
+      setAttribute(k,v) { this.attrs[k]=String(v); },
+      getAttribute(k) { return Object.hasOwn(this.attrs,k)?this.attrs[k]:null; },
+      addEventListener() {}, focus() { document.activeElement=this; },
       getBoundingClientRect() { return { left: 0, top: 0, width: 100, height: 100 }; }
     };
   }
@@ -100,11 +106,12 @@ function createRuntime(options = {}) {
     location: { search: "?pack=" + id, hash: "", pathname: "/study.html",
       href: "https://fixture.invalid/study.html?pack=" + id },
     history: { replaceState() {} }, URL, URLSearchParams, TextEncoder, TextDecoder, Uint8Array,
-    Math: Object.create(Math), Date: Clock, JSON, Set, Map, Promise, AbortController,
+    Math: Object.create(Math), Date: Clock, Set, Map, Promise, AbortController,
     atob: s => Buffer.from(s, "base64").toString("binary"),
     btoa: s => Buffer.from(s, "binary").toString("base64"),
     // Generated IDs are deterministic and contain no user data.
-    crypto: { randomUUID: () => "00000000-0000-4000-8000-000000000001" },
+    crypto: { randomUUID: () => "00000000-0000-4000-8000-000000000001",
+      getRandomValues(a) { a.fill(7); return a; } },
     console: Object.fromEntries(["debug", "log", "warn", "error"].map(k =>
       [k, (...args) => logs.push([k, ...args])])),
     setTimeout() { return 1; }, clearTimeout() {}, setInterval() { return 1; }, clearInterval() {},
@@ -130,6 +137,7 @@ function createRuntime(options = {}) {
   const ready = context._packReady;
   context._packReady = function () {
     if (options.configurePack) options.configurePack(context.ACED_PACK, context);
+    if (options.configureContext) options.configureContext(context);
     ready();
   };
   evaluate(loader, "study.html:actual-loader");
