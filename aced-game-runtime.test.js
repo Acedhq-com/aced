@@ -351,3 +351,102 @@ test("actual ranked poker scoring remains production Pair=28 without a copied ha
   assert.equal(f.api.G.score, 28);
   assert.equal(f.api.G.lastHand.name, "Pair");
 });
+
+// Desired v2 behavior against actual loader and handlers, with redacted failures.
+function integrityRuntime(rawId, initial = {}) {
+  return createRuntime({ now: 1800000000000, initial,
+    raw: { id: "runtime-fixture", name: "Synthetic integrity fixture", questions: [
+      { id: rawId, q: "Synthetic item", choices: ["Synthetic A", "Synthetic B"], answer: 0, source: "Fixture", explain: "Synthetic" }
+    ] } });
+}
+function integrityTest(name, fn) {
+  test(name, () => { try { fn(); } catch (_) { throw new Error("actual-runtime integrity regression failed"); } });
+}
+integrityTest("T12 actual audit true/miss preserves existing routes and game effects for special IDs", () => {
+  for (const correct of [true, false]) {
+    let ordinary;
+    for (const id of ["ordinary", "toString", "hasOwnProperty"]) {
+      const f = integrityRuntime(id); f.api.start();
+      let coreCalls = 0, bridgeCalls = 0;
+      const coreRecord = f.context.ACEDCore.review.record, bridgeRecord = f.context.ACEDLibraryRecord;
+      f.context.ACEDCore.review.record = (...args) => { coreCalls++; return coreRecord(...args); };
+      f.context.ACEDLibraryRecord = (...args) => { bridgeCalls++; return bridgeRecord(...args); };
+      const [choice] = f.choices("[data-ach]", [{ ach: correct ? "0" : "1" }]);
+      const [confidence] = f.choices("[data-conf]", [{ conf: "MED" }]);
+      f.api.beginAuditQuestion("Fixture", f.api.qbank[0], 10, true);
+      assert.equal(coreCalls, 0); assert.equal(bridgeCalls, 0);
+      choice.onclick(); confidence.onclick(); f.document.getElementById("auditSubmit").onclick();
+      assert.equal(coreCalls, 1); assert.equal(bridgeCalls, 1);
+      const review = JSON.parse(f.memory.get("aced:runtime-fixture:review"));
+      const learning = JSON.parse(f.memory.get("aced:runtime-fixture:learning_v1"));
+      assert.ok(Object.hasOwn(review, id) && Object.hasOwn(learning.answers, id));
+      assert.equal(review[id].seen, 1); assert.equal(learning.answers[id].attempts, 1);
+      assert.equal(learning.answers[id].lastCorrect, correct);
+      const effects = [f.api.mastery.Fixture, f.api.G.money, f.api.G.insight, f.api.G.conviction.Fixture, f.api.G.score];
+      if (id === "ordinary") ordinary = effects;
+      else assert.deepEqual(effects, ordinary);
+      const reload = integrityRuntime(id, Object.fromEntries(f.memory));
+      assert.equal(reload.context.ACEDLibrary.progress("runtime-fixture", [{ id }]).practiced, 1);
+      assert.equal(reload.context.ACEDCore.review.count(), 0);
+      assert.equal(f.requests.length, 0);
+    }
+  }
+});
+integrityTest("T11/T12 actual component holds are independent, with no compensating replay", () => {
+  for (const held of ["core", "library"]) {
+    const id = "toString", initial = held === "core"
+      ? { "aced:runtime-fixture:review": { [id]: null } }
+      : { "aced:runtime-fixture:learning_v1": { attempts: 12, correct: 8, selfRated: 2, answers: { [id]: null, other: { strength: 2 } } } };
+    const f = integrityRuntime(id, initial); f.api.start();
+    const heldKey = "aced:runtime-fixture:" + (held === "core" ? "review" : "learning_v1");
+    const before = f.memory.get(heldKey);
+    const [choice] = f.choices("[data-ach]", [{ ach: "0" }]);
+    const [confidence] = f.choices("[data-conf]", [{ conf: "MED" }]);
+    f.api.beginAuditQuestion("Fixture", f.api.qbank[0], 10, true);
+    choice.onclick(); confidence.onclick(); f.document.getElementById("auditSubmit").onclick();
+    assert.equal(f.memory.get(heldKey), before);
+    if (held === "core") assert.equal(JSON.parse(f.memory.get("aced:runtime-fixture:learning_v1")).attempts, 1);
+    else assert.equal(JSON.parse(f.memory.get("aced:runtime-fixture:review"))[id].seen, 1);
+    assert.equal(f.api.mastery.Fixture, 8); assert.equal(f.requests.length, 0);
+  }
+});
+integrityTest("T12 actual shared review submit remains core-only and no record on open", () => {
+  for (const correct of [true, false]) {
+    const f = integrityRuntime("hasOwnProperty"); f.api.start();
+    const q = f.api.qbank[0], core = f.context.ACEDCore;
+    core.store.set("review", { [q.id]: { dueAt: 1 } });
+    const [choice] = f.choices("[data-qc]", [{ qc: correct ? "0" : "1" }]);
+    let calls = 0, bridgeCalls = 0; const record = core.review.record;
+    core.review.record = (...args) => { calls++; return record(...args); };
+    f.context.ACEDLibraryRecord = () => { bridgeCalls++; };
+    f.api.updateReviewBadge(); assert.ok(f.document.getElementById("reviewBtn").innerHTML.includes(">1<"));
+    const learningBefore = f.memory.get("aced:runtime-fixture:learning_v1");
+    f.api.launchReview(); assert.equal(calls, 0);
+    assert.ok(f.modal().includes('role="button" tabindex="0"'));
+    choice.onclick(); f.document.getElementById("qSubmit").onclick();
+    f.document.getElementById("qSubmit").onclick();
+    assert.equal(calls, 1); assert.equal(bridgeCalls, 0);
+    assert.equal(f.memory.get("aced:runtime-fixture:learning_v1"), learningBefore);
+    f.document.getElementById("qNext").onclick();
+    assert.ok(f.modal().includes(correct ? "1/1" : "0/1"));
+    assert.equal(typeof f.document.getElementById("qDone").onclick, "function");
+    assert.equal(f.requests.length, 0);
+  }
+});
+integrityTest("T12/T13 finite accessible library progress text matches own practiced evidence", () => {
+  const f = integrityRuntime("toString", {
+    "aced:runtime-fixture:learning_v1": { answers: { unrelated: { strength: 2 } } }
+  });
+  f.document.getElementById("mine-search").value = "";
+  const fs = require("node:fs");
+  f.evaluate(fs.readFileSync(__dirname + "/aced-library-page.js", "utf8"), "aced-library-page.js:actual");
+  let markup = f.document.getElementById("mine-grid").innerHTML;
+  assert.ok(markup.includes('role="progressbar"') && markup.includes('aria-valuenow="0"'));
+  assert.ok(markup.includes("0% recall") && markup.includes("0/1 practiced"));
+  f.context.ACEDLibrary.saveLearning("runtime-fixture", { answers: { toString: { strength: 2 } } });
+  f.evaluate(fs.readFileSync(__dirname + "/aced-library-page.js", "utf8"), "aced-library-page.js:actual");
+  markup = f.document.getElementById("mine-grid").innerHTML;
+  assert.ok(markup.includes('aria-valuenow="100"') && markup.includes("100% recall") && markup.includes("1/1 practiced"));
+  assert.ok(!/NaN|Infinity/.test(markup));
+  assert.equal(f.requests.length, 0);
+});

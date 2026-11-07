@@ -13,6 +13,36 @@
   var RELICS = { warmup: "warmup", flowstate: "flowstate", snowball: "snowball" };
 
   function own(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function member(o, k) { var d = o && Object.getOwnPropertyDescriptor(o, k); return d && own(d, "value") ? d : null; }
+  function field(o, k) { var d = member(o, k); return d && d.enumerable ? d : null; }
+  function value(o, k) { var d = field(o, k); return d ? d.value : undefined; }
+  function put(o, k, v) { Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true }); }
+  function dataObject(v) {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+    var p = Object.getPrototypeOf(v);
+    while (p) {
+      var d = Object.getOwnPropertyDescriptor(p, "constructor");
+      var name = d && own(d, "value") && typeof d.value === "function" ? Object.getOwnPropertyDescriptor(d.value, "name") : null;
+      if (d && !d.enumerable && name && own(name, "value") && name.value !== "Object") return false;
+      p = Object.getPrototypeOf(p);
+    }
+    return true;
+  }
+  function jsonCopy(v, stack) {
+    if (v === null || typeof v === "string" || typeof v === "boolean") return v;
+    if (typeof v === "number" && isFinite(v)) return v;
+    if (!v || typeof v !== "object" || (!Array.isArray(v) && !dataObject(v))) throw new Error("serialization-failed");
+    stack = stack || [];
+    if (stack.indexOf(v) >= 0 || Object.getOwnPropertySymbols(v).length) throw new Error("serialization-failed");
+    stack.push(v);
+    var out = Array.isArray(v) ? Object.setPrototypeOf([], null) : Object.create(null), keys = Object.keys(v), names = Object.getOwnPropertyNames(v);
+    if (names.some(function (k) { return !own(Object.getOwnPropertyDescriptor(v, k), "value"); })) throw new Error("serialization-failed");
+    if (Array.isArray(v) && (names.length !== v.length + 1 || keys.length !== v.length || keys.some(function (k, i) { return k !== String(i); }))) throw new Error("serialization-failed");
+    keys.forEach(function (k) { var d = field(v, k); if (!d) throw new Error("serialization-failed"); put(out, k, jsonCopy(d.value, stack)); });
+    stack.pop(); return out;
+  }
+  function knownCount(o, k) { var v = value(o, k); return !!field(o, k) && typeof v === "number" && Number.isSafeInteger(v) && v >= 0; }
+  function recordingResult(outcome, persistence, reason) { return { outcome: outcome, persistence: persistence, reason: reason }; }
 
   function hash(text) {
     var h = 2166136261;
@@ -84,20 +114,61 @@
   /* Returns a function(question, correct) that records an answer in pack progress. */
   function recorder(library, id) {
     return function (q, correct) {
+      if (!q || q.id == null) return recordingResult("no-question", "none", "no-question");
+      var context, capability;
       try {
-        var learning = library.learning(id);
-        learning.answers = learning.answers || {};
-        var previous = learning.answers[q.id] || { attempts: 0, correct: 0, strength: 0 };
-        learning.attempts = (learning.attempts || 0) + 1;
-        if (correct) learning.correct = (learning.correct || 0) + 1;
-        learning.answers[q.id] = {
-          attempts: previous.attempts + 1,
-          correct: previous.correct + (correct ? 1 : 0),
-          strength: correct ? Math.min(2, (previous.strength || 0) + 1) : 0,
-          lastCorrect: !!correct, lastAt: Date.now(), selfRated: false
-        };
-        library.saveLearning(id, learning);
-      } catch (e) { /* progress is a bonus; never interrupt a run */ }
+        capability = member(library, "learningWriteContext");
+        if (!capability || typeof capability.value !== "function") throw new Error("raw-state-unavailable");
+        context = capability.value.call(library, id);
+        var classification = member(context, "classification"), source = member(context, "source"), snapshot = member(context, "snapshot"), commit = member(context, "commit");
+        if (!classification || !source || !snapshot || !commit || typeof commit.value !== "function" ||
+          ["absent", "present", "corrupt", "unavailable"].indexOf(classification.value) < 0 ||
+          ["durable", "memory", "none"].indexOf(source.value) < 0 ||
+          (classification.value === "unavailable" ? source.value !== "none" : source.value === "none")) throw new Error("raw-state-unavailable");
+      } catch (e) { return recordingResult("held", "none", "raw-state-unavailable"); }
+      if (classification.value === "corrupt") return recordingResult("held", "none", "historical-state-held");
+      var learning;
+      try {
+        learning = classification.value === "present" ? jsonCopy(snapshot.value) : { attempts: 0, correct: 0, selfRated: 0, answers: Object.create(null) };
+      } catch (e) { return recordingResult("held", "none", "serialization-failed"); }
+      if (!dataObject(learning) || (field(learning, "answers") && !dataObject(value(learning, "answers"))))
+        return recordingResult("held", "none", "historical-state-held");
+      var answers = value(learning, "answers");
+      if (!answers) { answers = Object.create(null); put(learning, "answers", answers); }
+      if (field(answers, q.id) && !dataObject(value(answers, q.id))) return recordingResult("held", "none", "historical-state-held");
+      var previous = field(answers, q.id) ? value(answers, q.id) : { attempts: 0, correct: 0, strength: 0 };
+      var knownItem = knownCount(previous, "attempts") && knownCount(previous, "correct"), partial = false;
+      function advance(o) {
+        ["attempts", "correct"].forEach(function (k) {
+          if (!knownCount(o, k)) partial = true;
+          else if (k === "attempts" || correct) {
+            if (o[k] < Number.MAX_SAFE_INTEGER) o[k]++;
+            else partial = true;
+          }
+        });
+      }
+      advance(learning); advance(previous);
+      if (field(learning, "selfRated") && !knownCount(learning, "selfRated")) partial = true;
+      var strength = value(previous, "strength");
+      if (!correct) put(previous, "strength", 0);
+      else if (field(previous, "strength") && typeof strength === "number" && isFinite(strength) && strength >= 0 && strength <= 2)
+        put(previous, "strength", Math.min(2, strength + 1));
+      else if (!field(previous, "strength") && knownItem) put(previous, "strength", 1);
+      else partial = true;
+      var now = Date.now();
+      if (typeof now !== "number" || !isFinite(now) || now < 0) return recordingResult("held", "none", "serialization-failed");
+      put(previous, "lastCorrect", !!correct); put(previous, "lastAt", now); put(previous, "selfRated", false);
+      put(answers, q.id, previous);
+      try { learning = jsonCopy(learning); }
+      catch (e) { return recordingResult("held", "none", "serialization-failed"); }
+      var disposition;
+      try { disposition = commit.value.call(context, learning); }
+      catch (e) { return recordingResult("held", "none", "storage-unavailable"); }
+      var accepted = member(disposition, "accepted"), persistence = member(disposition, "persistence"), reason = member(disposition, "reason");
+      if (!accepted || accepted.value !== true || !persistence || ["durable", "memory"].indexOf(persistence.value) < 0)
+        return recordingResult("held", "none", reason && reason.value === "serialization-failed" ? "serialization-failed" : "storage-unavailable");
+      return recordingResult(partial ? "partial" : "recorded", persistence.value,
+        partial ? "historical-fields-unknown" : (persistence.value === "durable" ? "complete" : "storage-unavailable"));
     };
   }
 

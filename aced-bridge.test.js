@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const B = require("./aced-bridge.js");
 const L = require("./aced-library.js");
+require("./tools/lib/question-id-integrity-tests")("library");
 
 function pack() {
   return L.normalize({
@@ -76,14 +77,15 @@ test("difficulty and starting joker map to engine mods from fixed literals only"
 });
 
 test("answers are recorded as library progress with strength that builds and resets", () => {
-  let saved;
-  const library = { learning: () => saved || { answers: {}, attempts: 0, correct: 0 }, saveLearning: (id, data) => { saved = data; } };
-  const record = B.recorder(library, "pack-x");
+  const library = L;
+  const record = B.recorder(library, "positive-bridge");
   record({ id: "q1" }, true); record({ id: "q1" }, true);
+  let saved = library.learning("positive-bridge");
   assert.equal(saved.answers.q1.strength, 2);
   assert.equal(saved.attempts, 2);
   assert.equal(saved.correct, 2);
   record({ id: "q1" }, false);
+  saved = library.learning("positive-bridge");
   assert.equal(saved.answers.q1.strength, 0);
   assert.equal(saved.answers.q1.attempts, 3);
 });

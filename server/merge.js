@@ -20,21 +20,69 @@ function mergeMastery(a, b) {
   return out;
 }
 
-function mergeReview(a, b) {
-  const out = {};
-  const keys = new Set(Object.keys(a || {}).concat(Object.keys(b || {})));
+function reviewField(o, k) {
+  const d = o && Object.getOwnPropertyDescriptor(o, k);
+  return d && d.enumerable && Object.prototype.hasOwnProperty.call(d, "value") ? d : null;
+}
+function reviewObject(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
+  let p = Object.getPrototypeOf(v);
+  while (p) {
+    const d = Object.getOwnPropertyDescriptor(p, "constructor");
+    const name = d && Object.prototype.hasOwnProperty.call(d, "value") && typeof d.value === "function" ? Object.getOwnPropertyDescriptor(d.value, "name") : null;
+    if (d && !d.enumerable && name && Object.prototype.hasOwnProperty.call(name, "value") && name.value !== "Object") return false;
+    p = Object.getPrototypeOf(p);
+  }
+  return true;
+}
+function reviewPut(o, k, v) {
+  Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true });
+}
+function reviewJSON(v, stack = []) {
+  if (v === null || typeof v === "string" || typeof v === "boolean") return v;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (!v || typeof v !== "object" || (!Array.isArray(v) && !reviewObject(v)) ||
+    stack.includes(v) || Object.getOwnPropertySymbols(v).length) throw new Error("serialization-failed");
+  stack.push(v);
+  const out = Array.isArray(v) ? Object.setPrototypeOf([], null) : Object.create(null), keys = Object.keys(v), names = Object.getOwnPropertyNames(v);
+  if (names.some(k => !Object.prototype.hasOwnProperty.call(Object.getOwnPropertyDescriptor(v, k), "value"))) throw new Error("serialization-failed");
+  if (Array.isArray(v) && (names.length !== v.length + 1 || keys.length !== v.length || keys.some((k, i) => k !== String(i)))) throw new Error("serialization-failed");
   keys.forEach(k => {
-    const ra = (a || {})[k], rb = (b || {})[k];
-    if (ra && rb) {
-      // Resolve by the NEWER `last` timestamp, not the larger `seen`. Keying on
-      // seen let an old, high-exposure record (e.g. a month-old box:0 failure)
-      // overwrite a more recent success, silently destroying newer mastery.
-      // seen === ok + miss is an invariant (aced-core bumps seen with exactly one
-      // of ok/miss), so whole records stay consistent; tie -> keep more history.
-      const la = +ra.last || 0, lb = +rb.last || 0;
-      out[k] = (la !== lb) ? (la > lb ? ra : rb) : ((+ra.seen || 0) >= (+rb.seen || 0) ? ra : rb);
+    const d = reviewField(v, k);
+    if (!d) throw new Error("serialization-failed");
+    reviewPut(out, k, reviewJSON(d.value, stack));
+  });
+  stack.pop(); return out;
+}
+function mergeReview(a, b) {
+  // Validate the whole scoped input before it can become a lossy persistence
+  // candidate. Detached data also removes inherited hooks without invoking them.
+  try { if (a !== undefined) a = reviewJSON(a); if (b !== undefined) b = reviewJSON(b); }
+  catch (_) { throw new Error("serialization-failed"); }
+  if (a === undefined && b === undefined) return Object.create(null);
+  if (a === undefined) return b;
+  if (b === undefined || !reviewObject(a) || !reviewObject(b)) return a;
+  const out = Object.create(null);
+  const keys = new Set(Object.keys(a).concat(Object.keys(b)));
+  keys.forEach(k => {
+    const da = reviewField(a, k), db = reviewField(b, k);
+    const ra = da ? da.value : undefined, rb = db ? db.value : undefined;
+    if (da && db) {
+      let winner = ra;
+      const processable = e => reviewObject(e) && ["last", "seen"].every(key => {
+        const d = reviewField(e, key);
+        return !d || d.value === null || ["number", "string", "boolean"].includes(typeof d.value);
+      });
+      if (processable(ra) && processable(rb)) {
+        const n = (e, key) => { const d = reviewField(e, key); return d ? +d.value || 0 : 0; };
+        const la = n(ra, "last"), lb = n(rb, "last");
+        // Whole-record last, then seen, then stored-side tie. Historical
+        // counters need not be additive or complete.
+        winner = la !== lb ? (la > lb ? ra : rb) : (n(ra, "seen") >= n(rb, "seen") ? ra : rb);
+      }
+      reviewPut(out, k, winner);
     }
-    else out[k] = ra || rb;
+    else reviewPut(out, k, da ? ra : rb);
   });
   return out;
 }
@@ -67,7 +115,12 @@ function mergeState(stored, incoming) {
   const keys = new Set(Object.keys(sd).concat(Object.keys(id)));
   keys.forEach(k => {
     if (k === "mastery") out[k] = mergeMastery(sd[k], id[k]);
-    else if (k === "review") out[k] = mergeReview(sd[k], id[k]);
+    else if (k === "review") {
+      const a = reviewField(sd, k), b = reviewField(id, k);
+      if ((Object.prototype.hasOwnProperty.call(sd, k) && (!a || a.value === undefined)) ||
+        (Object.prototype.hasOwnProperty.call(id, k) && (!b || b.value === undefined))) throw new Error("serialization-failed");
+      out[k] = mergeReview(a ? a.value : undefined, b ? b.value : undefined);
+    }
     else if (k === "dailyV1") out[k] = mergeDaily(id[k], sd[k], incomingNewer); // a=incoming
     else {
       // last-write-wins by snapshot updatedAt
