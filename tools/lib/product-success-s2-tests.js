@@ -2,6 +2,7 @@
 const assert=require("node:assert/strict"),vm=require("node:vm");
 const {createRuntime}=require("./runtime-fixture");
 const {dom,uniqueScript,disk,tick}=require("./product-success-s1-tests");
+const PUBLIC_CAPTION="Public practice pack. Content can change; matching dates do not guarantee identical questions.";
 const questions=n=>Array.from({length:n},(_,i)=>({id:"synthetic-"+i,q:"Synthetic "+i,choices:["One","Two"],answer:0,source:i%2?"A.two":"A.one",explain:"Synthetic explanation"}));
 function runtime(options={}){
   const n=options.n??6,id="success-fixture";
@@ -12,12 +13,12 @@ function runtime(options={}){
   });
 }
 function canvas(f){
-  const texts=[],downloads=[],original=f.document.createElement;
-  const drawing={fillText(t){texts.push(String(t));},measureText(t){return{width:String(t).length*10};},
+  const texts=[],downloads=[],draws=[],canvases=[],original=f.document.createElement;
+  const drawing={fillText(t,...args){const text=String(t);texts.push(text);draws.push({text,args,font:this.font});},measureText(t){return{width:String(t).length*10};},
     createLinearGradient(){return{addColorStop(){}};},createRadialGradient(){return{addColorStop(){}};}};
   for(const name of ["fillRect","strokeRect","beginPath","moveTo","lineTo","stroke","arc","fill","save","restore"])drawing[name]=()=>{};
-  f.document.createElement=function(tag){const n=original(tag);if(tag==="canvas"){n.getContext=()=>drawing;n.toDataURL=()=>"data:image/png;base64,synthetic";}if(tag==="a")n.click=()=>downloads.push({href:n.href,name:n.download});return n;};
-  return {texts,downloads};
+  f.document.createElement=function(tag){const n=original(tag);if(tag==="canvas"){canvases.push(n);n.getContext=()=>drawing;n.toDataURL=()=>"data:image/png;base64,synthetic";}if(tag==="a")n.click=()=>downloads.push({href:n.href,name:n.download});return n;};
+  return {texts,downloads,draws,canvases};
 }
 function daily(options={}){
   const read=options.read||disk,f=dom(),scripts=[],domReady=[],events=[],rewards=[],banks=[];
@@ -666,7 +667,48 @@ async function run(options={}){
   }
   await test("Daily public: actual hosted starter branch, pack-aware clean bounded URL",()=>{
     const f=daily({read,starter:true,local:true,id:"world-capitals",search:"&date=2026-11-07&extra=synthetic#fragment"}),text=f.api.shareString(rec);
-    const urls=text.split("\n").filter(s=>s.startsWith("https://"));assert.equal(urls.length,1);const url=new URL(urls[0]);assert.equal(url.origin,"https://acedhq.com");assert.equal(url.pathname,"/daily.html");assert.deepEqual([...url.searchParams.keys()],["pack","date","s"]);assert.equal(url.searchParams.get("pack"),"world-capitals");assert.equal(url.hash,"");assert.ok(text.includes("Material can change"));
+    const urls=text.split("\n").filter(s=>s.startsWith("https://"));assert.equal(urls.length,1);const url=new URL(urls[0]);assert.equal(url.origin,"https://acedhq.com");assert.equal(url.pathname,"/daily.html");assert.deepEqual([...url.searchParams.keys()],["pack","date","s"]);assert.equal(url.searchParams.get("pack"),"world-capitals");assert.equal(url.hash,"");assert.ok(text.split("\n").includes(PUBLIC_CAPTION));
+  });
+  await test("Daily public caption: actual text, native payload and Save Card share the exact fixed-geometry sentence",async()=>{
+    assert.equal(PUBLIC_CAPTION.length,94);
+    for(const id of ["world-capitals","spanish-1k"]){
+      const f=daily({read,id,search:"&date=2026-11-07&account=synthetic#fragment"}),before=JSON.stringify([...f.memory]),state=JSON.stringify(f.api.state),events=JSON.stringify(f.events),rewards=JSON.stringify(f.rewards);
+      const text=f.api.shareString(rec);
+      assert.equal(text.split("\n").filter(line=>line===PUBLIC_CAPTION).length,1,"actual public output must use the approved caption once");
+      assert.ok(!text.includes("Try this public practice pack. Material can change"));
+      function captionDraw(){
+        const captions=f.draws.filter(d=>d.args[0]===60&&d.args[1]===570);
+        assert.equal(captions.length,1);assert.equal(captions[0].text,PUBLIC_CAPTION);
+        assert.equal(captions[0].font,'18px "Courier New",monospace');assert.deepEqual(captions[0].args,[60,570]);
+        assert.equal(f.draws.filter(d=>d.text===PUBLIC_CAPTION).length,1);
+        assert.equal(f.canvases.length,1);assert.equal(f.canvases[0].width,1200);assert.equal(f.canvases[0].height,630);
+        const url=new URL(f.draws.find(d=>d.args[1]===604).text);
+        assert.deepEqual([...url.searchParams.keys()],["pack","date","s"]);assert.equal(url.searchParams.get("pack"),id);assert.equal(url.hash,"");
+      }
+      let awards=0;const payloads=[];
+      f.context.ACEDFX={ach:{unlock(name){assert.equal(name,"share");awards++;}}};
+      f.api.makeCardDataURL(rec);captionDraw();assert.equal(awards,0);
+      f.context.navigator.share=async payload=>{payloads.push(payload);};await f.api.shareText(rec);
+      assert.equal(payloads.length,1);assert.equal(payloads[0].text,text);assert.equal(payloads[0].title,"ACED Daily Run");assert.equal(awards,1);
+      f.draws.length=0;f.canvases.length=0;f.api.shareCard(rec);captionDraw();
+      assert.equal(f.downloads.length,1);assert.equal(f.downloads[0].name,"aced-run-676.png");assert.equal(awards,2);
+      assert.equal(JSON.stringify([...f.memory]),before);assert.equal(JSON.stringify(f.api.state),state);
+      assert.equal(JSON.stringify(f.events),events);assert.equal(JSON.stringify(f.rewards),rewards);assert.equal(f.requests.length,0);
+    }
+  });
+  await test("Daily caption isolation: private, direct and mismatched sources keep exact personal output and Library route",async()=>{
+    const personal="Personal practice result. This does not identify or link to the question set.";
+    for(const opts of [{local:true,id:"private-synthetic"},{direct:true},{mismatch:true}]){
+      const f=daily({read,...opts}),before=JSON.stringify([...f.memory]),text=f.api.shareString(rec),payloads=[];
+      assert.equal(text.split("\n").filter(line=>line===personal).length,1);assert.ok(!text.includes(PUBLIC_CAPTION));
+      assert.equal(text.split("\n").at(-1),"https://acedhq.com/library.html");
+      f.context.navigator.share=async payload=>{payloads.push(payload);};await f.api.shareText(rec);
+      assert.equal(payloads[0].text,text);assert.equal(payloads[0].title,"ACED Daily result");
+      f.api.shareCard(rec);const captions=f.draws.filter(d=>d.args[1]===570);
+      assert.equal(captions.length,1);assert.equal(captions[0].text,personal);assert.equal(captions[0].font,'18px "Courier New",monospace');
+      assert.deepEqual(captions[0].args,[60,570]);assert.equal(f.draws.find(d=>d.args[1]===604).text,"https://acedhq.com/library.html");
+      assert.equal(JSON.stringify([...f.memory]),before);assert.equal(f.requests.length,0);
+    }
   });
   await test("Daily unknown: mismatched loaded identity cannot acquire public provenance",()=>{
     const f=daily({read,mismatch:true});assert.ok(f.api.shareString(rec).includes("Personal practice result."));assert.ok(!f.api.shareString(rec).includes("Public synthetic pack"));
