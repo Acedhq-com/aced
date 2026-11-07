@@ -136,6 +136,80 @@ function createRuntime(options = {}) {
   context.window = context;
   vm.createContext(context);
   const evaluate = (source, filename) => vm.runInContext(source, context, { filename, timeout: 3000 });
+  let focusModel;
+  if (options.focusLifecycle) {
+    // Explicit inert ownership/removal and options conversion. No HTML parsing,
+    // browser focus support, computed geometry or native accessibility claim.
+    const listeners=new Map(),calls=[],attempts=[],created=[];
+    class Element {}
+    Element.prototype.focus=function(opts){
+      attempts.push({node:this,connected:this.isConnected});
+      if(focusModel.mode==="throw")throw Error("synthetic focus failure");
+      const preventScroll=focusModel.mode==="ignore"?undefined:opts?.preventScroll;
+      calls.push({node:this,preventScroll,connected:this.isConnected});
+      if(!this.isConnected){if(focusModel.mode==="probe-steals")document.activeElement=this;return;}
+      if(focusModel.mode!=="no-land")document.activeElement=this;
+    };
+    function make(n,tag="DIV"){
+      Object.setPrototypeOf(n,Element.prototype);delete n.focus;
+      Object.assign(n,{nodeType:1,tagName:tag,ownerDocument:document,isConnected:true,parentElement:null,
+        hidden:false,inert:false,tabIndex:0,computed:{display:"block",visibility:"visible",opacity:"1"}});
+      n.hasAttribute=k=>Object.hasOwn(n.attrs,k);
+      n.removeAttribute=k=>{delete n.attrs[k];};
+      n.getClientRects=()=>[{width:100,height:100}];
+      n.closest=selector=>{
+        assert.equal(selector,'[hidden],[inert],[aria-hidden="true"]');
+        for(let p=n;p;p=p.parentElement)if(p.hidden||p.inert||p.attrs?.["aria-hidden"]==="true")return p;
+        return null;
+      };
+      n.matches=selector=>{
+        assert.equal(selector,".qch,.tbopt,.ctier");
+        return ["qch","tbopt","ctier"].some(c=>n.classList.contains(c));
+      };
+      n.click=()=>{if(n.onclick)n.onclick();};
+      return n;
+    }
+    const get=document.getElementById;
+    document.getElementById=id=>{
+      const n=get(id);if(!(n instanceof Element))make(n);
+      return n;
+    };
+    make(document.body,"BODY");make(document.documentElement,"HTML");document.body.parentElement=document.documentElement;
+    const hand=document.getElementById("hand");hand.parentElement=document.body;
+    let markup="",cards=[];
+    Object.defineProperty(hand,"innerHTML",{get:()=>markup,set(value){
+      markup=String(value);focusModel.renders++;
+      if(cards.includes(document.activeElement))document.activeElement=document.body;
+      cards.forEach(n=>{n.isConnected=false;n.parentElement=null;});
+      const game=context.__runtime.G;
+      cards=Array.from(game.hand,(c,i)=>{
+        const n=make(node());n.parentElement=hand;n.classList.add("card");
+        n.dataset.id=String(c.id);n.setAttribute("data-id",String(c.id));
+        n.setAttribute("role","button");n.setAttribute("tabindex","0");
+        n.setAttribute("aria-label","Synthetic engine card "+i);
+        n.setAttribute("aria-pressed",game.sel.has(c.id)?"true":"false");return n;
+      });
+      selectors.set("#hand .card",cards);
+      if(focusModel.afterReplace)focusModel.afterReplace(cards);
+    }});
+    document.addEventListener=(type,fn)=>{if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn);};
+    const query=document.querySelectorAll;
+    document.querySelectorAll=selector=>selector==='.aced-ob-back,dialog[open],[role="dialog"][aria-modal="true"]'?focusModel.dialogs:query(selector);
+    document.visibilityState="visible";document.hasFocus=()=>true;
+    document.createElement=tag=>{const n=make(node(),tag.toUpperCase());n.isConnected=false;created.push(n);return n;};
+    context.HTMLElement=Element;context.getComputedStyle=n=>n.computed;
+    focusModel={mode:"supported",calls,attempts,created,listeners,dialogs:[],renders:0,afterReplace:null,hand,
+      make:(tag="BUTTON")=>make(node(),tag),get cards(){return cards;},
+      key(n,key,extra={}){
+        const e={key,currentTarget:n,target:n,prevented:0,stopped:0,
+          preventDefault(){this.prevented++;},stopPropagation(){this.stopped++;},...(typeof extra==="function"?{}:extra)};
+        if(typeof extra==="function")extra(e);
+        n.onkeydown(e);
+        if(!e.stopped)for(const fn of listeners.get("keydown")||[])fn.call(document,e);
+        return e;
+      }
+    };
+  }
   ["aced-library.js", "aced-bridge.js", "aced-core.js", "packs/core-jokers.js"].forEach(file =>
     evaluate(sourceRead(file), file));
   if (options.publicLoader) {
@@ -185,7 +259,9 @@ function createRuntime(options = {}) {
   ] };
   const saved = options.loadExisting ? context.ACEDLibrary.get(id) : context.ACEDLibrary.save(raw);
   assert.equal(saved.id, id);
-  evaluate(actualEngine.replace(end, hook + end), "study.html:actual-engine");
+  const actualHook=options.focusLifecycle?hook.replace("store:ACED_STORE, start,",
+    "render, get sound(){return sfx;}, setGame(value){G=value;}, store:ACED_STORE, start,"):hook;
+  evaluate(actualEngine.replace(end, actualHook + end), "study.html:actual-engine");
   const ready = context._packReady;
   context._packReady = function () {
     if (options.configurePack) options.configurePack(context.ACED_PACK, context);
@@ -197,6 +273,7 @@ function createRuntime(options = {}) {
   return {
     context, api: context.__runtime, memory, document, elements, writes, sanitized,
     logs, requests, appended, node,
+    ...(focusModel?{focusModel}:{}),
     blockStorage(value = true) { storageBlocked = value; },
     blockWrites(value = true) { writesBlocked = value; },
     setNow(value) { now = value; },

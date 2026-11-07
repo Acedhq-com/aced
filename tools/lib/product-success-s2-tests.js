@@ -62,6 +62,31 @@ function publicFixture(read,state="loading"){
   f.pack=pack=>f.evaluate("window.ACED_PACK="+JSON.stringify({id:"public-fixture",...pack}),"fixture:public-pack");
   return f;
 }
+function focusFixture(read,options={}){
+  const id="focus-fixture",f=createRuntime({read,id,now:1700000000000,focusLifecycle:true,
+    raw:{id,name:"Synthetic focus pack",questions:questions(6)},...options});
+  f.api.start();f.document.getElementById("beginClose").onclick();f.focusModel.calls.length=0;
+  return f;
+}
+function focusEffects(f){
+  return JSON.stringify({game:f.api.G,mastery:f.api.mastery,unlocked:f.api.unlocked,
+    memory:[...f.memory],writes:f.writes,events:f.context.ACEDCore.analytics.recent(),
+    renders:f.focusModel.renders,requests:f.requests.length},
+    (_key,value)=>value instanceof Set?[...value]:value);
+}
+function focusPair(read,setup){
+  function side(pointer){
+    const f=focusFixture(read),m=f.focusModel,n=m.cards[3];f.document.activeElement=n;
+    const extra=setup(f,n)||{};
+    let sounds=0;const sound=f.api.sound.sel;f.api.sound.sel=()=>{sounds++;sound();};
+    const e=pointer?(n.onclick(),null):m.key(n,"Enter",extra);
+    return {f,m,n,e,sounds,effects:focusEffects(f)};
+  }
+  const key=side(false),pointer=side(true);
+  assert.equal(key.effects,pointer.effects,"optional continuity must preserve actual pointer-toggle game/store effects");
+  assert.equal(key.sounds,pointer.sounds);assert.equal(key.f.requests.length,0);
+  return key;
+}
 async function run(options={}){
   const read=options.read||disk,results=[];
   async function test(name,fn){try{await fn();results.push({name,ok:true});}catch(e){results.push({name,ok:false,kind:e.name,frame:String(e.stack).split("\n").find(s=>s.includes("product-success-s2-tests.js:"))||""});}}
@@ -139,6 +164,225 @@ async function run(options={}){
     const f=createRuntime({read,id:"public-fixture",publicLoader:{readyState:"loading"}});f.startLoader();f.context.ACED_PACK=null;const terminal=f.appended[0];terminal.onload();f.defineEngine();
     assert.throws(()=>f.fireDocument("DOMContentLoaded","interactive"));assert.equal(f.context._ACED_BOOTED,true);assert.deepEqual(f.deliveries,[true]);
     terminal.onload();f.fireDocument("DOMContentLoaded","complete");assert.deepEqual(f.deliveries,[true]);assert.equal(f.context._ACED_BOOTED,true);assert.equal(f.requests.length,0);
+  });
+  await test("focus: actual nonfirst binding keeps the same surviving card on repeated supported keys",()=>{
+    const f=focusFixture(read),m=f.focusModel,id=f.api.G.hand[3].id,order=f.api.G.hand.map(c=>c.id);
+    const markup=f.api.cardHTML(f.api.G.hand[3]);
+    assert.ok(markup.includes('data-id="'+id+'"'));assert.match(markup,/role="button" tabindex="0" aria-pressed="false" aria-label="[^"]+"/);
+    let sounds=0;const sound=f.api.sound.sel;f.api.sound.sel=()=>{sounds++;sound();};
+    const memory=[...f.memory],writes=f.writes.slice(),events=f.context.ACEDCore.analytics.recent();
+    f.document.activeElement=m.cards[3];
+    for(const key of ["Enter","Enter"," "," ","Spacebar","Spacebar"]){
+      const old=m.cards[3],selected=f.api.G.sel.has(id),renders=m.renders,live=m.calls.filter(c=>c.connected).length;
+      const e=m.key(old,key);
+      assert.equal(f.api.G.sel.has(id),!selected);assert.equal(m.renders,renders+1);assert.equal(old.isConnected,false);
+      assert.deepEqual(Array.from(f.api.G.hand,c=>c.id),Array.from(order));
+      assert.equal(f.document.activeElement,m.cards[3],"same surviving nonfirst card must own focus after actual render");
+      assert.equal(e.prevented,1);assert.equal(e.stopped,1);assert.equal(m.calls.filter(c=>c.connected).length,live+1);
+      assert.equal(m.calls.at(-1).preventScroll,true);
+    }
+    assert.equal(sounds,6);assert.equal(m.calls.filter(c=>!c.connected).length,1);
+    assert.deepEqual([...f.memory],memory);assert.deepEqual(f.writes,writes);
+    assert.deepEqual(f.context.ACEDCore.analytics.recent(),events);assert.equal(f.requests.length,0);
+  });
+  await test("focus: local handled-key containment prevents the actual document choice click after render transfer",()=>{
+    let f,choice,clicks=0;
+    f=focusFixture(read,{configurePack(p){p.handTypes=[{name:"Synthetic condition",mult:1,
+      condition(cards){if(cards.length)f.document.activeElement=choice;return true;}}];}});
+    choice=f.focusModel.make();choice.classList.add("qch");choice.onclick=()=>{clicks++;};
+    f.document.activeElement=choice;
+    for(const fn of f.focusModel.listeners.get("keydown")||[])fn({key:"Enter",preventDefault(){}});
+    assert.equal(clicks,1,"the unchanged real document handler must be active");clicks=0;
+    f.document.activeElement=f.focusModel.cards[2];
+    const e=f.focusModel.key(f.focusModel.cards[2],"Enter");
+    assert.equal(f.api.G.sel.size,1);assert.equal(f.document.activeElement,choice);
+    assert.equal(clicks,0,"a card event must not additionally activate the newly focused choice");
+    assert.equal(e.prevented,1);assert.equal(e.stopped,1);assert.equal(f.focusModel.calls.length,1);
+  });
+  await test("focus: unsupported pre-activation ownership, document, visibility and overlays leave original effects",()=>{
+    const cases=["unfocused","wrong-current","wrong-target","missing-current","missing-target","wrong-owner","not-direct","disconnected","hand-disconnected",
+      "negative-tabindex","wrong-role","empty-name","hidden","inert","disabled","aria-disabled","ancestor-inert","empty-rects","display-none","visibility-hidden","opacity-zero",
+      "overlay","tutorial","onboarding","onboarding-fading","native-dialog","aria-dialog","document-hidden","document-visibility","document-unfocused",
+      "missing-hasFocus","throw-hasFocus","throw-rects","throw-computed","missing-computed","throw-overlay-query","missing-overlay","missing-tutorial","duplicate-dom"];
+    for(const mode of cases){
+      const result=focusPair(read,(f,n)=>{
+        const m=f.focusModel,d=f.document;
+        if(mode==="unfocused")d.activeElement=d.body;
+        if(mode==="wrong-current")return {currentTarget:d.body};
+        if(mode==="wrong-target")return {target:d.body};
+        if(mode==="missing-current")return {currentTarget:undefined};
+        if(mode==="missing-target")return {target:undefined};
+        if(mode==="wrong-owner")n.ownerDocument={};
+        if(mode==="not-direct")n.parentElement=d.body;
+        if(mode==="disconnected")n.isConnected=false;
+        if(mode==="hand-disconnected")m.hand.isConnected=false;
+        if(mode==="negative-tabindex"){n.tabIndex=-1;n.setAttribute("tabindex","-1");}
+        if(mode==="wrong-role")n.setAttribute("role","link");
+        if(mode==="empty-name")n.setAttribute("aria-label"," ");
+        if(["hidden","inert","disabled"].includes(mode))n[mode]=true;
+        if(mode==="aria-disabled")n.setAttribute("aria-disabled","true");
+        if(mode==="ancestor-inert")m.hand.inert=true;
+        if(mode==="empty-rects")n.getClientRects=()=>[];
+        if(mode==="display-none")n.computed.display="none";
+        if(mode==="visibility-hidden")n.computed.visibility="hidden";
+        if(mode==="opacity-zero")n.computed.opacity="0";
+        if(mode==="overlay")d.getElementById("overlay").classList.add("show");
+        if(mode==="tutorial")d.getElementById("tutBackdrop").classList.add("show");
+        if(["onboarding","onboarding-fading","native-dialog","aria-dialog"].includes(mode))m.dialogs.push(m.make("DIV"));
+        if(mode==="document-hidden")d.hidden=true;
+        if(mode==="document-visibility")d.visibilityState="hidden";
+        if(mode==="document-unfocused")d.hasFocus=()=>false;
+        if(mode==="missing-hasFocus")d.hasFocus=undefined;
+        if(mode==="throw-hasFocus")d.hasFocus=()=>{throw Error("synthetic inspection");};
+        if(mode==="throw-rects")n.getClientRects=()=>{throw Error("synthetic inspection");};
+        if(mode==="throw-computed")f.context.getComputedStyle=()=>{throw Error("synthetic inspection");};
+        if(mode==="missing-computed")f.context.getComputedStyle=undefined;
+        if(mode==="throw-overlay-query"){const query=d.querySelectorAll;d.querySelectorAll=s=>{if(s.startsWith(".aced-ob-back"))throw Error("synthetic inspection");return query(s);};}
+        if(mode==="missing-overlay"||mode==="missing-tutorial"){const get=d.getElementById;d.getElementById=id=>id===(mode==="missing-overlay"?"overlay":"tutBackdrop")?null:get(id);}
+        if(mode==="duplicate-dom"){const twin=m.make("DIV");twin.parentElement=m.hand;twin.classList.add("card");Object.assign(twin.attrs,n.attrs);twin.dataset.id=n.dataset.id;m.cards.push(twin);}
+      });
+      assert.equal(result.m.calls.length,0,mode);assert.equal(result.e.prevented,1);assert.equal(result.e.stopped,1);
+    }
+  });
+  await test("focus: strict literal and own inert engine identities never normalize, coerce or substitute",()=>{
+    for(const literal of ["","0","-1","+1"," 1","1 ","01","1e0","1x","1.0","9007199254740992"]){
+      const {m}=focusPair(read,(_f,n)=>{n.dataset.id=literal;n.setAttribute("data-id",literal);});
+      assert.equal(m.calls.length,0,literal);
+    }
+    for(const mode of ["duplicate-engine","absent-engine","global-pack","pack-accessor","pack-inherited","empty-pack-id","global-accessor","global-inherited","id-accessor","id-inherited"]){
+      const observed=[];
+      const {m}=focusPair(read,(f,n)=>{
+        let hooks=0;f.context.__focusHooks=()=>{hooks++;};
+        const card=f.api.G.hand[3],id=card.id;
+        if(mode==="duplicate-engine")f.api.G.hand[4].id=id;
+        if(mode==="absent-engine"){n.dataset.id="999999";n.setAttribute("data-id","999999");}
+        if(mode==="global-pack")f.context.ACED_PACK={id:"other"};
+        if(mode==="pack-accessor")Object.defineProperty(f.api.pack,"id",{configurable:true,get(){hooks++;return "focus-fixture";}});
+        if(mode==="pack-inherited"){const pack=f.api.pack,id=pack.id;delete pack.id;Object.setPrototypeOf(pack,{id});}
+        if(mode==="empty-pack-id")f.api.pack.id="";
+        if(mode==="global-accessor")f.evaluate('Object.defineProperty(window,"ACED_PACK",{configurable:true,get(){__focusHooks();return __runtime.pack;}})');
+        if(mode==="global-inherited")f.evaluate('delete window.ACED_PACK;Object.setPrototypeOf(window,Object.assign(Object.create(Object.getPrototypeOf(window)),{ACED_PACK:__runtime.pack}));');
+        if(mode==="id-accessor")Object.defineProperty(card,"id",{configurable:true,get(){hooks++;return id;}});
+        if(mode==="id-inherited"){delete card.id;Object.setPrototypeOf(card,{id});}
+        const after=f.focusModel.afterReplace;
+        f.focusModel.afterReplace=nodes=>{if(after)after(nodes);observed.push(()=>hooks);};
+      });
+      assert.equal(m.calls.length,0,mode);
+      if(mode==="pack-accessor"||mode==="global-accessor")assert.deepEqual(observed.map(get=>get()),[0,0]);
+      if(mode==="id-accessor")assert.equal(observed[0](),observed[1](),"only unchanged render may read an authored accessor");
+    }
+    for(const id of [0,-1,1.5,NaN,Infinity,Number.MAX_SAFE_INTEGER+1,"12"]){
+      const {m}=focusPair(read,f=>{f.api.G.hand[3].id=id;});assert.equal(m.calls.length,0);
+    }
+  });
+  await test("focus: changed post-render identity, ownership, context or recipient declines restoration",()=>{
+    const cases=["removed","substituted","reordered","changed-game","changed-hand","changed-global","changed-pack-id","duplicate-dom","wrong-parent","wrong-owner",
+      "hidden","inert","disabled","negative-tabindex","empty-name","empty-rects","old-connected","hand-disconnected","hand-replaced",
+      "other-card","other-button","null-focus","html-focus","foreign-focus","detached-focus","already-recipient","body-disconnected",
+      "overlay","tutorial","onboarding","document-hidden","document-unfocused","throw-computed","custom-method","changed-method","duplicate-engine","pack-accessor","global-accessor"];
+    for(const mode of cases){
+      const {m}=focusPair(read,(f,old)=>{
+        const model=f.focusModel,d=f.document;
+        model.afterReplace=cards=>{
+          const n=cards[3],g=f.api.G;
+          if(mode==="removed")g.hand.splice(3,1);
+          if(mode==="substituted")g.hand[3]={...g.hand[3]};
+          if(mode==="reordered")g.hand.reverse();
+          if(mode==="changed-game")f.api.setGame({...g});
+          if(mode==="changed-hand")g.hand=g.hand.slice();
+          if(mode==="changed-global")f.context.ACED_PACK={};
+          if(mode==="changed-pack-id")f.api.pack.id="different";
+          if(mode==="duplicate-dom"){const twin=model.make("DIV");twin.parentElement=model.hand;twin.classList.add("card");Object.assign(twin.attrs,n.attrs);twin.dataset.id=n.dataset.id;cards.push(twin);}
+          if(mode==="wrong-parent")n.parentElement=d.body;
+          if(mode==="wrong-owner")n.ownerDocument={};
+          if(["hidden","inert","disabled"].includes(mode))n[mode]=true;
+          if(mode==="negative-tabindex"){n.tabIndex=-1;n.setAttribute("tabindex","-1");}
+          if(mode==="empty-name")n.setAttribute("aria-label","");
+          if(mode==="empty-rects")n.getClientRects=()=>[];
+          if(mode==="old-connected")old.isConnected=true;
+          if(mode==="hand-disconnected")model.hand.isConnected=false;
+          if(mode==="hand-replaced"){const next=model.make("DIV");next.id="hand";f.elements.set("hand",next);}
+          if(mode==="other-card")d.activeElement=cards[0];
+          if(mode==="other-button")d.activeElement=model.make();
+          if(mode==="null-focus")d.activeElement=null;
+          if(mode==="html-focus")d.activeElement=d.documentElement;
+          if(mode==="foreign-focus"){d.activeElement=model.make();d.activeElement.ownerDocument={};}
+          if(mode==="detached-focus"){d.activeElement=model.make();d.activeElement.isConnected=false;}
+          if(mode==="already-recipient")d.activeElement=n;
+          if(mode==="body-disconnected")d.body.isConnected=false;
+          if(mode==="overlay")d.getElementById("overlay").classList.add("show");
+          if(mode==="tutorial")d.getElementById("tutBackdrop").classList.add("show");
+          if(mode==="onboarding")model.dialogs.push(model.make("DIV"));
+          if(mode==="document-hidden")d.hidden=true;
+          if(mode==="document-unfocused")d.hasFocus=()=>false;
+          if(mode==="throw-computed")f.context.getComputedStyle=()=>{throw Error("synthetic inspection");};
+          if(mode==="custom-method")n.focus=()=>{throw Error("custom method must not be called");};
+          if(mode==="changed-method")f.context.HTMLElement.prototype.focus=()=>{throw Error("changed method must not be called");};
+          if(mode==="duplicate-engine")g.hand[4].id=g.hand[3].id;
+          if(mode==="pack-accessor")Object.defineProperty(f.api.pack,"id",{get(){throw Error("pack accessor must not be called");}});
+          if(mode==="global-accessor")f.evaluate('Object.defineProperty(window,"ACED_PACK",{configurable:true,get(){throw Error("global accessor must not be called");}})');
+        };
+      });
+      assert.equal(m.calls.filter(c=>c.connected).length,0,mode);
+    }
+  });
+  await test("focus: options support is detached, cached and rejects custom or unsupported operations",()=>{
+    for(const mode of ["ignore","throw","probe-steals","missing-native","native-accessor","custom-node","accessor-node","probe-create-throws","connected-probe","wrong-probe-owner"]){
+      const f=focusFixture(read),m=f.focusModel;
+      let hooks=0;
+      if(["ignore","throw","probe-steals"].includes(mode))m.mode=mode;
+      if(mode==="missing-native")delete f.context.HTMLElement.prototype.focus;
+      if(mode==="native-accessor")Object.defineProperty(f.context.HTMLElement.prototype,"focus",{get(){hooks++;return ()=>{};}});
+      if(mode==="custom-node")m.cards[3].focus=()=>{hooks++;};
+      if(mode==="accessor-node")Object.defineProperty(m.cards[3],"focus",{get(){hooks++;return ()=>{};}});
+      if(mode==="probe-create-throws")f.document.createElement=()=>{throw Error("synthetic detached probe");};
+      if(mode==="connected-probe")f.document.createElement=()=>m.make();
+      if(mode==="wrong-probe-owner")f.document.createElement=()=>Object.assign(m.make(),{isConnected:false,ownerDocument:{}});
+      f.document.activeElement=m.cards[3];m.key(m.cards[3],"Enter");
+      assert.equal(m.calls.filter(c=>c.connected).length,0);assert.equal(hooks,0);
+      if(["ignore","throw","probe-create-throws"].includes(mode)){
+        const count=m.attempts.length;m.mode="supported";
+        f.document.activeElement=m.cards[3];m.key(m.cards[3],"Enter");assert.equal(m.attempts.length,count);
+      }
+    }
+    for(const mode of ["throw","no-land"]){
+      const f=focusFixture(read),m=f.focusModel;f.document.activeElement=m.cards[3];
+      m.afterReplace=()=>{m.mode=mode;};m.key(m.cards[3],"Enter");
+      assert.equal(m.attempts.filter(c=>c.connected).length,1);
+      assert.equal(f.document.activeElement,f.document.body,"a failed optional focus must not retry");
+    }
+  });
+  await test("focus: busy, sixth card, pointer, unrelated keys and repeat preserve unchanged activation",()=>{
+    for(const mode of ["busy","sixth"]){
+      const {m,sounds}=focusPair(read,(f)=>{
+        if(mode==="busy")f.api.G.busy=true;
+        else f.api.G.sel=new Set(f.api.G.hand.filter((_,i)=>i!==3).slice(0,5).map(c=>c.id));
+      });
+      assert.equal(m.calls.filter(c=>c.connected).length,0);assert.equal(sounds,0);
+      if(mode==="busy")assert.equal(m.calls.length,0);
+    }
+    const pointer=focusFixture(read),pm=pointer.focusModel;pointer.document.activeElement=pm.cards[3];
+    pm.cards[3].onclick();assert.equal(pm.calls.length,0);assert.equal(pointer.api.G.sel.size,1);
+    for(const key of ["Tab","Escape","ArrowLeft","a"]){
+      const f=focusFixture(read),m=f.focusModel;f.document.activeElement=m.cards[3];const before=focusEffects(f),e=m.key(m.cards[3],key);
+      assert.equal(focusEffects(f),before);assert.equal(e.prevented,0);assert.equal(e.stopped,0);assert.equal(m.calls.length,0);
+    }
+    for(const extra of [{repeat:true,ctrlKey:true,altKey:true},{stopPropagation:undefined},e=>Object.defineProperty(e,"currentTarget",{get(){throw Error("synthetic ownership");}})]){
+      const f=focusFixture(read),m=f.focusModel;f.document.activeElement=m.cards[3];const e=m.key(m.cards[3],"Enter",extra);
+      assert.equal(f.api.G.sel.size,1);assert.equal(e.prevented,1);
+      if(typeof extra==="function")assert.equal(m.calls.length,0);else assert.equal(m.calls.filter(c=>c.connected).length,1);
+    }
+    const f=focusFixture(read),m=f.focusModel;m.dialogs.push(Object.assign(m.make("DIV"),{isConnected:false}));
+    f.document.activeElement=m.cards[3];m.key(m.cards[3],"Enter");assert.equal(f.document.activeElement,m.cards[3]);
+  });
+  await test("focus: original render errors propagate without post-error restoration or rollback",()=>{
+    for(const pointer of [false,true]){
+      const f=focusFixture(read),m=f.focusModel,n=m.cards[3],id=f.api.G.hand[3].id;f.document.activeElement=n;
+      m.afterReplace=()=>{throw Error("synthetic original render error");};
+      assert.throws(()=>pointer?n.onclick():m.key(n,"Enter"));
+      assert.equal(f.api.G.sel.has(id),true);assert.equal(n.isConnected,false);
+      assert.equal(m.attempts.filter(c=>c.connected).length,0);assert.equal(f.requests.length,0);
+    }
   });
   await test("copy: actual initial modal makes the quiz optional and retains full casual access",()=>{
     const f=runtime({read}),marker='<p class="help">Clear a ',parts=f.modal().split(marker);

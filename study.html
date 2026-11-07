@@ -1579,6 +1579,90 @@ function cardHTML(c,dealIdx){const mod=c.weakness?'<div class="modk" style="colo
   ${fin}<div><div class="el ${esc(c.el)}">${esc(c.el)}</div><div class="cn">${esc(c.n)}</div>${c.tags.length&&!c.weakness?`<div class="tagline">${tagLine(c)}</div>`:""}</div>
   ${mod}<div class="cv ${esc(c.el)}">$${Number(c.v)|0}</div></div>`;}
 
+let cardFocusSupport=null;
+function cardFocusData(object,key){
+  const d=Object.getOwnPropertyDescriptor(object,key);
+  return d&&Object.prototype.hasOwnProperty.call(d,"value")?d.value:undefined;
+}
+function cardFocusContext(){
+  if(document.hidden!==false||document.visibilityState!=="visible"||typeof document.hasFocus!=="function"||document.hasFocus()!==true)return null;
+  const overlay=document.getElementById("overlay"),tutorial=document.getElementById("tutBackdrop");
+  if(!overlay||!tutorial||overlay.classList.contains("show")||tutorial.classList.contains("show"))return null;
+  if(Array.from(document.querySelectorAll('.aced-ob-back,dialog[open],[role="dialog"][aria-modal="true"]')).some(n=>n.isConnected))return null;
+  const game=G,pack=PACK,packId=cardFocusData(pack,"id");
+  if(!game||cardFocusData(game,"busy")!==false||cardFocusData(window,"ACED_PACK")!==pack||typeof packId!=="string"||!packId.trim())return null;
+  const hand=cardFocusData(game,"hand"),owner=document.getElementById("hand");
+  if(!Array.isArray(hand)||!owner||owner.ownerDocument!==document||owner.nodeType!==1||owner.isConnected!==true)return null;
+  const rows=[],ids=new Set();
+  for(let i=0;i<hand.length;i++){
+    const card=cardFocusData(hand,i);
+    if(!card||typeof card!=="object")return null;
+    const id=cardFocusData(card,"id");
+    if(!Number.isSafeInteger(id)||id<=0||ids.has(id))return null;
+    ids.add(id);rows.push({card,id});
+  }
+  return {game,pack,packId,hand,owner,rows};
+}
+function cardFocusLive(node,owner){
+  if(!node||node.nodeType!==1||node.tagName!=="DIV"||node.ownerDocument!==document||node.parentElement!==owner||node.isConnected!==true||!node.classList.contains("card"))return false;
+  const name=node.getAttribute("aria-label");
+  if(node.getAttribute("role")!=="button"||node.getAttribute("tabindex")!=="0"||node.tabIndex!==0||typeof name!=="string"||!name.trim())return false;
+  if(node.hidden||node.inert||node.disabled||node.hasAttribute("disabled")||node.getAttribute("aria-disabled")==="true"||node.closest('[hidden],[inert],[aria-hidden="true"]'))return false;
+  const style=getComputedStyle(node),rects=node.getClientRects();
+  return style.display!=="none"&&style.visibility==="visible"&&typeof style.opacity==="string"&&Number.isFinite(Number(style.opacity))&&Number(style.opacity)>0&&Array.from(rects).some(r=>Number.isFinite(r.width)&&Number.isFinite(r.height)&&r.width>0&&r.height>0);
+}
+function cardFocusNative(node,method){
+  let p=node;
+  while(p&&p!==HTMLElement.prototype){
+    if(Object.getOwnPropertyDescriptor(p,"focus"))return false;
+    p=Object.getPrototypeOf(p);
+  }
+  return p===HTMLElement.prototype&&cardFocusData(p,"focus")===method;
+}
+function cardFocusMethod(node){
+  if(typeof HTMLElement!=="function")return null;
+  const method=cardFocusData(HTMLElement.prototype,"focus");
+  if(typeof method!=="function"||!cardFocusNative(node,method))return null;
+  if(cardFocusSupport===null){
+    cardFocusSupport={method,supported:false};
+    const active=document.activeElement,probe=document.createElement("button");
+    if(!probe||probe.tagName!=="BUTTON"||probe.ownerDocument!==document||probe.isConnected!==false||!cardFocusNative(probe,method))return null;
+    let read=false;
+    Reflect.apply(method,probe,[{get preventScroll(){read=true;return true;}}]);
+    if(document.activeElement!==active)return null;
+    cardFocusSupport.supported=read;
+  }
+  return cardFocusSupport.supported&&cardFocusSupport.method===method?method:null;
+}
+function cardFocusTicket(node,event){
+  try{
+    if(document.activeElement!==node||event.currentTarget!==node||event.target!==node)return null;
+    const context=cardFocusContext();
+    if(!context||!cardFocusLive(node,context.owner))return null;
+    const literal=node.getAttribute("data-id");
+    if(typeof literal!=="string"||!/^[1-9][0-9]*$/.test(literal))return null;
+    const id=Number(literal);
+    if(!Number.isSafeInteger(id)||String(id)!==literal||!context.rows.some(r=>r.id===id))return null;
+    if(Array.from(document.querySelectorAll("#hand .card")).filter(n=>n.parentElement===context.owner&&n.getAttribute("data-id")===literal).length!==1)return null;
+    const method=cardFocusMethod(node);
+    return method?{...context,node,literal,id,method}:null;
+  }catch(e){return null;}
+}
+function restoreCardFocus(ticket){
+  if(!ticket)return;
+  try{
+    if(ticket.node.isConnected!==false||ticket.node.ownerDocument!==document)return;
+    const current=cardFocusContext();
+    if(!current||current.game!==ticket.game||current.pack!==ticket.pack||current.packId!==ticket.packId||current.hand!==ticket.hand||current.owner!==ticket.owner||current.rows.length!==ticket.rows.length)return;
+    if(current.rows.some((r,i)=>r.card!==ticket.rows[i].card||r.id!==ticket.rows[i].id))return;
+    const candidates=Array.from(document.querySelectorAll("#hand .card")).filter(n=>n.parentElement===current.owner&&n.getAttribute("data-id")===ticket.literal);
+    if(candidates.length!==1||!cardFocusLive(candidates[0],current.owner))return;
+    const target=candidates[0],body=document.body;
+    if(document.activeElement===target||document.activeElement!==body||!body||body.tagName!=="BODY"||body.ownerDocument!==document||body.isConnected!==true)return;
+    if(!cardFocusNative(target,ticket.method)||cardFocusData(HTMLElement.prototype,"focus")!==ticket.method)return;
+    Reflect.apply(ticket.method,target,[{preventScroll:true}]);
+  }catch(e){}
+}
 function render(){
   $("blindName").textContent=G.nemesis?("Ante "+G.ante+" \u00b7 \u2620 NEMESIS"):("Ante "+G.ante+" \u00b7 "+BLINDLBL[G.blind]);
   $("blindBanner").className="blind"+(G.blind===2?" boss":"");
@@ -1610,7 +1694,7 @@ function render(){
   showCardTip(tipC||null);
   $("play").disabled=G.busy||sel.length===0||G.handsLeft<=0;
   $("discard").disabled=G.busy||sel.length===0||G.discLeft<=0;
-  document.querySelectorAll("#hand .card").forEach(el=>{const toggle=()=>{if(G.busy)return;const id=+el.dataset.id;if(G.sel.has(id))G.sel.delete(id);else{if(G.sel.size>=5){toast("Max 5 cards per hand.");return;}G.sel.add(id);}G._tipId=id;sfx.sel();render();};el.onclick=toggle;el.onkeydown=(e)=>{if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();toggle();}};});
+  document.querySelectorAll("#hand .card").forEach(el=>{const toggle=()=>{if(G.busy)return;const id=+el.dataset.id;if(G.sel.has(id))G.sel.delete(id);else{if(G.sel.size>=5){toast("Max 5 cards per hand.");return;}G.sel.add(id);}G._tipId=id;sfx.sel();render();};el.onclick=toggle;el.onkeydown=(e)=>{if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();try{if(typeof e.stopPropagation==="function")e.stopPropagation();}catch(ignore){}const ticket=cardFocusTicket(el,e);toggle();restoreCardFocus(ticket);}};});
   document.querySelectorAll("#consRail .ci").forEach(el=>el.onclick=()=>{if(G.busy)return;useConsumable(+el.dataset.ci);});
 }
 let toastT=null;
