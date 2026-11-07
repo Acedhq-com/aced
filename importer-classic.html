@@ -354,13 +354,15 @@ MATERIAL:
     }
     function unmark(s){return s.replace(/^(?:\*\*|__)/,"").replace(/(?:\*\*|__)$/,"").trim();}
     function time(s){return /^\d{1,2}:\s*\d{2}(?:\s*[ap]m)?$/i.test(s)||/^\d{1,2}\s*[ap]m$/i.test(s);}
+    var clock="\\d{1,2}(?::[ \\t]*\\d{2}(?:[ \\t]*[ap]m)?|[ \\t]*[ap]m)";
+    var clockRange=new RegExp("^"+clock+"[ \\t]*(?:::|:[ \\t]+|/|=|->|=>|→|—|–|-)[ \\t]*"+clock+"$","i");
     text.split(/\n/).forEach(function (line) {
       var l = line.trim().replace(/^(?:[-*+•]|\d+[.)])\s+/,"");
       if (!l || l.length > 240) return;
       // skip lines that are actually MCQ options or answer/explanation keys
       if (/^[A-Ha-h][.)]\s/.test(l)) return;
       if (/^(?:q|question|a|answer|ans|correct|explanation|explain|why|rationale)\s*[:.)-]/i.test(l)) return;
-      if(/^https?:\/\/\S+$/i.test(l)||time(l))return;
+      if(/^https?:\/\/\S+$/i.test(l)||time(l)||clockRange.test(l))return;
       var m = split(l,[/::/g,/:[ \t]+/g,/[ \t]+=[ \t]+/g,/[ \t]+->[ \t]+/g,
         /[ \t]+=>[ \t]+/g,/[ \t]+→[ \t]+/g,/[ \t]+—[ \t]+/g,/[ \t]+–[ \t]+/g,/[ \t]+-[ \t]+/g,/[ \t]+\/[ \t]+/g]);
       if (m) {

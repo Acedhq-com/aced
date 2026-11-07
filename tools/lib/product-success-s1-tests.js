@@ -30,6 +30,16 @@ function uniqueScript(html, marker) {
   assert.equal(selected.length, 1, "actual script selector must be unique");
   return selected[0].code;
 }
+function homeTag(html){
+  const id='id="capForm"',at=html.indexOf(id);assert.ok(at>=0&&html.indexOf(id,at+id.length)<0);
+  const open=html.slice(html.lastIndexOf("<",at),html.indexOf(">",at)+1);
+  assert.match(open,/^<form(?=[\t\n\f\r >])/);return open;
+}
+function homeOwners(html){
+  const tag=homeTag(html);assert.match(tag,/\sdata-aced-notify(?=[\s=>])/);assert.match(tag,/\sdata-source="home"(?=[\s>])/);
+  const actual=scripts(html);assert.equal(actual.filter(s=>/\ssrc="notify\.js"(?=[\s>])/.test(s.tag)).length,1);
+  assert.equal(actual.some(s=>s.code.includes('getElementById("capForm")')&&/addEventListener\(["']submit["']/.test(s.code)),false);
+}
 function dom() {
   const ids = new Map(), nodes = [], writes = [], timers = new Map();
   let now = 1000, timerId = 0;
@@ -129,13 +139,17 @@ function classic(read=disk) {
 }
 function home(read=disk) {
   const f=dom(); ["bootGo","bootNotes","bootStatus","capForm","capNote","capEmail"].forEach(f.ensure);
-  const form=f.ensure("capForm");form.tagName="FORM";const input=f.ensure("capEmail"), note=f.ensure("capNote"),button=f.node("","BUTTON");
-  form.setAttribute("data-aced-notify","");form.setAttribute("data-source","home");form.setAttribute("data-endpoint","https://capture.invalid/notify");
-  form.appendChild(input);form.appendChild(button);form.appendChild(note);input.value="synthetic@example.invalid";
-  form.querySelectorAll=s=>s==='input[type="email"]'?[input]:s==='[type="submit"]'||s==="button"?[button]:s===".capnote"?[note]:[];
+  const html=read("index.html"),tag=homeTag(html),form=f.ensure("capForm");form.tagName="FORM";
+  const input=f.ensure("capEmail"),note=f.ensure("capNote"),button=f.node("","BUTTON"),container=f.node();input.tagName="INPUT";note.classList.add("capnote");form.classList.add("formrow");
+  if(/\sdata-aced-notify(?=[\s=>])/.test(tag))form.setAttribute("data-aced-notify","");
+  for(const name of ["data-source","data-endpoint"]){const match=tag.match(new RegExp("\\s"+name+'="([^"]*)"'));if(match)form.setAttribute(name,match[1]);}
+  form.appendChild(input);form.appendChild(button);container.appendChild(form);container.appendChild(note);input.value="synthetic@example.invalid";
+  form.querySelectorAll=s=>s==='input[type="email"]'?[input]:s==='[type="submit"]'||s==="button"?[button]:[];
+  container.querySelectorAll=s=>s==="form"?[form]:s===".capnote"?[note]:[];
+  f.context.ACED_API_URL="https://capture.invalid";
   f.evaluate(read("aced-library.js"),"aced-library.js");
-  f.evaluate(uniqueScript(read("index.html"),"var bootGo="),"home:actual-controller");
-  f.evaluate(read("notify.js"),"notify.js");
+  f.evaluate(uniqueScript(html,"var bootGo="),"home:actual-controller");
+  for(const include of scripts(html).filter(s=>/\ssrc="notify\.js"(?=[\s>])/.test(s.tag)))f.evaluate(read("notify.js"),"notify.js");
   return {...f,form,input,note,button};
 }
 function modern(read=disk) {
@@ -168,7 +182,7 @@ async function run(options={}) {
     await test(route+": missing endpoint never confirms",async()=>{
       const f=route==="home"?home(read):dom(), form=route==="home"?f:{...f.form()};
       if(route!=="home")f.evaluate(read("notify.js"));
-      form.form.setAttribute("data-endpoint","");await form.form.fire("submit");
+      form.form.setAttribute("data-endpoint","");delete f.context.ACED_API_URL;delete f.context.ACED_CAPTURE_ENDPOINT;await form.form.fire("submit");
       assert.match(form.note.textContent,/not connected/);assert.equal(f.requests.length,0);
     });
   }
@@ -205,6 +219,29 @@ async function run(options={}) {
     f.advance(10001);d.resolve(f.json({ok:true}));await tick();assert.equal(f.events.length,0);assert.equal(b.button.disabled,false);
     assert.equal(f.document.querySelectorAll("style[data-aced-notify-style]").length,1);
   });
+  await test("capture: lost form/input/button/status authority cannot mutate stale or newer controls",async()=>{
+    for(const loss of ["form","note","input","status","button"]){
+      const f=dom(),a=f.form("lsat"),b=f.form("mcat"),old=deferred(),newer=deferred();let n=0;
+      f.context.fetch=()=>n++?newer.promise:old.promise;f.evaluate(read("notify.js"));await a.form.fire("submit");await b.form.fire("submit");
+      const note=a.note.textContent,attrs=JSON.stringify(a.input.attrs),query=a.form.querySelectorAll,replacement=f.node();
+      if(loss==="form")a.form.isConnected=false;if(loss==="note")a.note.isConnected=false;
+      if(loss==="input")a.form.querySelectorAll=s=>s==='input[type="email"]'?[replacement]:query(s);
+      if(loss==="status")a.form.querySelectorAll=s=>s===".capnote"?[replacement]:query(s);
+      if(loss==="button")a.form.querySelectorAll=s=>s==='[type="submit"]'||s==="button"?[replacement]:query(s);
+      replacement.textContent="Independent status";replacement.disabled=true;replacement.setAttribute("aria-busy","independent");
+      old.resolve({ok:true,status:200,json:()=>f.json({ok:true})});await tick();
+      assert.equal(a.button.disabled,true);assert.equal(a.form.getAttribute("aria-busy"),"true");assert.equal(a.note.textContent,note);assert.equal(JSON.stringify(a.input.attrs),attrs);
+      assert.equal(replacement.textContent,"Independent status");assert.equal(replacement.disabled,true);assert.equal(replacement.getAttribute("aria-busy"),"independent");
+      assert.equal(b.button.disabled,true);assert.equal(b.form.getAttribute("aria-busy"),"true");assert.equal(f.timers.size,1);assert.equal(f.events.length,0);
+      newer.resolve({ok:true,status:200,json:()=>f.json({ok:true})});await tick();assert.equal(b.button.disabled,false);assert.equal(f.timers.size,0);assert.equal(f.events.length,1);
+    }
+  });
+  await test("Home capture: actual marker/source/include and absence of old owner are independently required",()=>{
+    const html=read("index.html");homeOwners(html);
+    for(const mutated of [html.replace(" data-aced-notify "," "),html.replace('data-source="home"','data-source="other"'),
+      html.replace('<script src="notify.js"></script>',""),html.replace("</body>",'<script>var form=document.getElementById("capForm");form.addEventListener("submit",function(){});</script></body>')])
+      assert.throws(()=>homeOwners(mutated));
+  });
   await test("capture: fixed metric sources, payload, endpoint and honeypot",async()=>{
     for(const source of ["home","lsat","mcat","nclex","bar-exam","usmle","unknown"]){
       const f=dom(),a=f.form(source);f.context.fetch=(...v)=>{f.requests.push(v);return Promise.resolve({ok:true,status:200,json:()=>f.json({ok:true})});};f.evaluate(read("notify.js"));a.hp.value="blocked";await a.form.fire("submit");assert.equal(f.requests.length,0);a.hp.value="";await a.form.fire("submit");
@@ -233,6 +270,39 @@ async function run(options={}) {
       const f=classic(read),a=item("alpha:");a.transform=bad;f.pdf([[a,item("first",50,700,30,true)]]);await assert.rejects(f.api.extractPdf(inputFile("fixture.pdf","")));
     }
     const f=classic(read);f.pdf([[item("alpha: first"),item("beta: second",0,697.99,20,true)]]);assert.equal((await f.api.extractPdf(inputFile("fixture.pdf",""))).split("\n").filter(Boolean).length,2);
+  });
+  await test("classic: all finite PDF geometry cases reach actual file state and Build/review or honest hold",async()=>{
+    async function pipeline(pages,text){
+      const f=classic(read);f.pdf(pages);await f.change(inputFile("fixture.pdf",""));await tick();
+      if(text===null){assert.equal(f.ensure("uBuild").disabled,true);assert.equal(f.api.draft.length,0);assert.equal(f.navigations.length,0);assert.ok(f.ensure("uStatus").textContent.length>0);return;}
+      assert.equal(f.ensure("uBuild").disabled,false);await f.build();assert.equal(f.ensure("pasteBox").value,text);assert.ok(f.api.draft.length>=2);
+    }
+    for(const gap of [-1,0,1,1.01,24])
+      await pipeline([[item("alpha::",20,700,30),item("first",50+gap,700,30,true)],[item("beta:: second",20,684,80,true)]],"alpha::"+(gap<=1?"":" ")+"first\nbeta:: second\n");
+    for(const delta of [2,2.01]){
+      const first=item("alpha:: first",20,700,80),second=item(delta===2?" ":"beta:: second",100,700-delta,80,true);
+      await pipeline([[first,second],...(delta===2?[[item("beta:: second",20,684,80,true)]]:[])],delta===2?"alpha:: first \nbeta:: second\n":"alpha:: first\nbeta:: second\n");
+    }
+    await pipeline([[item("alpha:: first",20,700,80,true),item("beta:: second",20,700,80,true)]],"alpha:: first\nbeta:: second\n");
+    for(const eol of ["\r","\n","\r\n"])await pipeline([[{str:"alpha:: first"+eol+"beta:: second"}]],"alpha:: first\nbeta:: second\n");
+    await pipeline([[{str:"alpha:: first"}],[],[{str:"beta:: second"}]],"alpha:: first\n\nbeta:: second\n");
+    for(const gap of [-1.01,24.01])await pipeline([[item("alpha::",20,700,30),item("first",50+gap,700,30)]],null);
+    for(const property of ["missing","nonfinite","width","nonfinite-width","rotated","nonstring","multilinejoin"]){
+      const first=item("alpha::",20,700,30),second=item("first",50,700,30);
+      if(property==="missing")delete second.transform;if(property==="nonfinite")second.transform[4]=Infinity;
+      if(property==="width")delete second.width;if(property==="nonfinite-width")second.width=Infinity;if(property==="rotated")second.transform[1]=.01;
+      if(property==="nonstring")second.str=42;if(property==="multilinejoin")first.str="head\nalpha::";
+      await pipeline([[first,second]],null);
+    }
+    await pipeline([[],[]],null);await pipeline([[{str:"",hasEOL:true}]],null);await pipeline([[{str:"alpha:: first",hasEOL:true}],Error("synthetic page rejection")],null);
+    const f=classic(read);f.context.pdfjsLib={getDocument:()=>({promise:Promise.resolve({numPages:1,getPage:()=>Promise.reject(Error("synthetic page rejection"))})})};
+    await f.change(inputFile("fixture.pdf",""));await tick();assert.equal(f.ensure("uBuild").disabled,true);assert.equal(f.api.draft.length,0);
+  });
+  await test("classic: whole clock-only ranges cannot turn into a new question pool",async()=>{
+    const text="12: 30 PM / 1: 00 PM\n9: 15 AM - 10: 45 AM",f=classic(read);
+    assert.equal(f.context.ACEDExtract._parseDefinitions(text).length,0);assert.equal(f.context.ACEDExtract.fromAny(text).questions.length,0);
+    await f.change(inputFile("clock.txt",text));await f.build();assert.equal(f.api.draft.length,0);assert.equal(f.ensure("pasteBox").value,text);
+    assert.equal(f.context.ACEDExtract._parseDefinitions("Office hours: 12: 30 PM").length,1);
   });
   await test("classic: supported grammar, true alternatives, safe literal terms and MCQ precedence",()=>{
     const f=classic(read),E=f.context.ACEDExtract;
@@ -265,13 +335,20 @@ async function run(options={}) {
     const raw="日本: 語\nα: β\n ";f.ensure("bootNotes").value=raw;await f.ensure("bootGo").fire("click");assert.equal(f.navigations.length,1);
     const url=new URL(f.navigations[0],"https://fixture.invalid/");assert.equal(f.context.ACEDLibrary.decode(new URLSearchParams(url.hash.slice(1)).get("notes")),raw);
   });
-  await test("classic: memory-only save holds exact editable preview; durable save opens fresh library",async()=>{
+  await test("classic: memory-only save holds exact preview; durable save boots actual fresh study loader/bridge",async()=>{
     for(const persistent of [false,true]){
       const f=classic(read);await f.change(inputFile("fixture.txt",legacyPairText));await tick();await f.build();assert.ok(f.api.draft.length>0);const before=JSON.stringify(f.api.draft);f.ensure("packName").value="Synthetic title";
       if(!persistent)f.context.ACEDLibrary.isPersistent=()=>false;
       await f.ensure("playNow").fire("click");assert.equal(f.navigations.length,persistent?1:0);assert.equal(JSON.stringify(f.api.draft),before);assert.equal(f.ensure("packName").value,"Synthetic title");
       if(!persistent)assert.match(f.ensure("pvMeta").textContent,/not confirmed saved/);
-      else {const next=dom();for(const [k,v] of f.memory)next.memory.set(k,v);next.evaluate(read("aced-library.js"));const id=new URL(f.navigations[0],"https://fixture.invalid/").searchParams.get("pack");assert.ok(next.context.ACEDLibrary.get(id));}
+      else {
+        const id=new URL(f.navigations[0],"https://fixture.invalid/").searchParams.get("pack");
+        const next=require("./runtime-fixture").createRuntime({id,read,loadExisting:true,initial:Object.fromEntries(f.memory),now:1700000000000});
+        const saved=next.context.ACEDLibrary.get(id),expected=next.context.ACEDBridge.toEngineQuestions(saved);
+        assert.equal(next.api.pack.id,id);assert.equal(saved.name,"Synthetic title");assert.ok(next.api.qbank.length>0);
+        const fields=q=>[q.id,q.q,q.choices,q.answer,q.source,q.explain];
+        assert.equal(JSON.stringify(next.api.qbank.map(fields)),JSON.stringify(expected.map(fields)));assert.equal(next.requests.length,0);
+      }
     }
   });
   await test("classic: PDF explicit hard breaks, pages, empty middle and failed pages",async()=>{
@@ -360,6 +437,7 @@ async function run(options={}) {
   });
   await test("copy: owned visible paragraphs and JSON-LD are separate evidence",()=>{
     const contracts=[
+      ["index.html","capture-intro","Get updates about ACED features and study packs. Submit your email to request launch updates."],
       ["index.html","supported-input","Use Term: definition lines or Q:/A: blocks, then review the questions before play. Arbitrary articles, links and prose are not automatically turned into a deck."],
       ["index.html","sample-purpose","Try the game with the World Capitals sample pack. No upload is needed."],
       ["index.html","optional-practice","Play poker hands to clear score targets. Between rounds, optional question practice lets you choose LOW, MED or HIGH confidence. You can win the casual game without answering questions."],
@@ -368,7 +446,10 @@ async function run(options={}) {
       ["index.html","deletion-disclosure","Deleting a pack removes that pack’s data in this browser. It does not clear every draft, earlier email copy, other device or cloud snapshot. Keep an export if you need a backup."],
       ["index.html","capture-disclosure","An accepted request confirms registration with the service, not email delivery, a new subscription or updates for a particular pack. No launch date is promised."],
       ["importer-classic.html","classic-review","Review every question and answer. Only supported structured material is converted; other prose may be left out. Automatically assembled choices are not a test of free recall. You can inspect the extracted text through Back → Paste."],
-      ["importer.html","review-description","Check every answer before play. Optional question practice uses multiple-choice answers. Where choices were not authored, options can be assembled from other answers; this is not a test of free recall."]
+      ["importer.html","review-description","Check every answer before play. Optional question practice uses multiple-choice answers. Where choices were not authored, options can be assembled from other answers; this is not a test of free recall."],
+      ["pricing.html","pricing-practice","Play poker hands to clear score targets. Between rounds, optional question practice lets you choose LOW, MED or HIGH confidence. You can win the casual game without answering questions."],
+      ["pricing.html","pricing-sync","If you sign in and sync, study progress can include question, topic or source labels and other text-bearing study data. Optional launch updates send your email to the configured service. Older versions may already have retained email copies locally or in synced snapshots."],
+      ["pricing.html","pricing-deletion","Deleting a pack removes that pack’s data in this browser. It does not clear every draft, earlier email copy, other device or cloud snapshot. Keep an export if you need a backup."]
     ];
     function paragraph(html,id,text){
       const start=html.indexOf('id="'+id+'"');assert.ok(start>=0&&html.indexOf('id="'+id+'"',start+1)<0,"unique visible owner");
@@ -392,6 +473,49 @@ async function run(options={}) {
     literalButton(read("index.html"));
     for(const body of ["<span>NOTIFY ME</span>","${dynamic}","NOTIFY ME<script>","<b>NOTIFY</b> ME"])
       assert.throws(()=>literalButton('<button type="submit">'+body+"</button>"));
+  });
+  await test("copy: owned pricing/input/privacy, library/store routes and canonical footer survive removal controls",()=>{
+    function region(html,open,close){
+      const at=html.indexOf(open);assert.ok(at>=0&&html.indexOf(open,at+open.length)<0,"one inspected literal owner");
+      const end=html.indexOf(close,at+open.length);assert.ok(end>=0);return html.slice(at,end+close.length);
+    }
+    const cases=[
+      ["pricing.html",'<ul class="feat">',"</ul>",[
+        '<li>Use supported structured pairs or authored questions, then review before play. <a href="importer-classic.html">Import a text-based PDF or Word document</a>.</li>',
+        "<li>Original files are processed in your browser. Shared links and exports contain the material you choose to share.</li>"
+      ]],
+      ["library.html",'<div class="byon">',"\n  </div>",[
+        "<p>Bring supported structured pairs or authored questions, then inspect and edit the review before play. Arbitrary articles and links are not automatically converted. Original files are parsed in your browser; optional sync can include text-bearing study data, and shared links or exports contain selected material.</p>",
+        '<a href="importer-classic.html">Import a text-based PDF or Word document</a>',
+        '<a class="btn" href="importer.html">▶ FORGE A DECK</a>'
+      ]],
+      ["store.html",'<div class="head">',"\n  </div>",[
+        '<p class="lede">Browse hosted study packs, or bring supported structured pairs and authored questions for editable review. Arbitrary prose and links are not automatically converted.</p>',
+        '<p class="subtle">Can\'t find your subject? Review a pack from your own structured material, then choose what to share. <a href="importer-classic.html">Import a text-based PDF or Word document</a>. Original files are processed in your browser; optional sync can include text-bearing study data, and shared links or exports contain selected material.</p>'
+      ]],
+      ["importer.html",'<footer class="site-footer">',"</footer>",[
+        '<span id="importer-data">Original material is parsed in your browser. Optional account sync can include text-bearing study data; shared links or exports contain the material you choose to share.</span>',
+        '<a href="library.html">Back to library</a>'
+      ]],
+      ["importer.html",'<p class="hint">We parse your answers',"</p>",[
+        '<a href="importer-classic.html">Use the document importer</a>'
+      ]],
+      ["index.html",'<button class="btn primary" id="bootGo"',"\n          </div>",[
+        '<a class="btn ghost" href="importer-classic.html">Import PDF or Word</a>'
+      ]]
+    ];
+    for(const [name,open,close,slots] of cases){
+      const html=read(name),check=source=>{const owned=region(source,open,close);for(const slot of slots)assert.ok(owned.includes(slot),"critical owned literal text/link");};
+      check(html);
+      for(const slot of slots){
+        const own=region(html,open,close),removed=html.replace(own,own.replace(slot,""));assert.throws(()=>check(removed));
+        const altered=html.replace(own,own.replace(slot,slot.replace("importer-classic.html","unsupported.html").replace("Original files","Local files").replace("Original material","Local material").replace("supported structured","any").replace("Back to library","Return")));
+        if(altered!==html)assert.throws(()=>check(altered));
+      }
+    }
+    const html=read("index.html"),start=html.indexOf('id="deletion-disclosure"'),open=html.lastIndexOf("<p",start),end=html.indexOf("</p>",start)+4;
+    const changed=html.slice(0,open)+html.slice(end);assert.ok(changed.includes('href="library.html"'));assert.ok(scripts(changed).some(s=>s.tag.includes("ld+json")));
+    assert.equal(changed.includes('id="deletion-disclosure"'),false);
   });
   for(const end of ["</script>","</script >","</script/>","</ScRiPt x=1>","</script\n>"]){
     await test("source selector: real delimiter "+JSON.stringify(end),()=>assert.equal(uniqueScript("<script>const marker=1;"+end,"marker"),"const marker=1;"));

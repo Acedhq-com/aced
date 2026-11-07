@@ -84,24 +84,33 @@
     form.setAttribute("data-aced-notify-form","");if(input)input.setAttribute("data-aced-notify-email","");if(button)button.setAttribute("data-aced-notify-submit","");
     var row=form.classList.contains("formrow")?form:form.querySelector(".formrow");
     if(row&&input&&row.contains(input)&&(!button||row.contains(button)))row.setAttribute("data-aced-notify-row","");
-    function live(){return form.isConnected!==false&&note.isConnected!==false&&form.querySelector('input[type="email"]')===input&&note[owner]===form;}
+    function live(){
+      if(form.isConnected===false||note.isConnected===false||!form.hasAttribute("data-aced-notify")||
+        form.querySelector('input[type="email"]')!==input||note[owner]!==form)return false;
+      if(button&&(button.isConnected===false||(form.querySelector('[type="submit"]')||form.querySelector("button"))!==button))return false;
+      var ownNotes=form.querySelectorAll(".capnote"),p=form.parentNode;
+      if(ownNotes.length)return ownNotes.length===1&&ownNotes[0]===note;
+      return !!p&&p.querySelectorAll("form").length===1&&p.querySelectorAll(".capnote").length===1&&p.querySelector(".capnote")===note;
+    }
     function show(message,ok){if(!live())return;note.classList.remove("ok");if(ok)note.classList.add("ok");if(note.textContent!==message)note.textContent=message;}
     function changed(op){return revision!==op.revision||!input||input.value!==op.raw||(form.getAttribute("data-source")||"home")!==op.source||endpointFor(form)!==op.endpoint;}
     function finish(op,state){
       if(current!==op)return;
       if(Date.now()>=op.deadline)state="timeout";
-      var edited=changed(op),visible=live(),source=op.source;
+      var visible=live(),edited=visible?changed(op):true,source=op.source;
       current=null;clearTimeout(op.timer);result=true;
-      if(button)button.disabled=op.disabled;
-      if(form.getAttribute("aria-busy")==="true"){if(op.busy===null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",op.busy);}
-      show(edited?(state==="accepted"?copy.earlierAccepted:copy.earlierUnconfirmed):copy[state],state==="accepted"&&!edited);
+      if(visible){
+        if(button)button.disabled=op.disabled;
+        if(form.getAttribute("aria-busy")==="true"){if(op.busy===null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",op.busy);}
+        show(edited?(state==="accepted"?copy.earlierAccepted:copy.earlierUnconfirmed):copy[state],state==="accepted"&&!edited);
+      }
       if(state==="timeout"&&op.controller){try{op.controller.abort();}catch(_){}}
       if(visible&&!edited&&state==="accepted"&&["home","lsat","mcat","nclex","bar-exam","usmle"].indexOf(source)>=0){
         try{if(window.ACEDCore&&window.ACEDCore.analytics&&typeof window.ACEDCore.analytics.track==="function")window.ACEDCore.analytics.track("email_captured",{source:source});}catch(_){}
       }
       op.raw=op.source=op.endpoint=op.controller=null;
     }
-    function edit(){revision++;if(input)input.removeAttribute("aria-invalid");if(current)show(copy.edited,false);else if(result)show(copy.draft,false);}
+    function edit(){revision++;if(!live())return;if(input)input.removeAttribute("aria-invalid");if(current)show(copy.edited,false);else if(result)show(copy.draft,false);}
     if(input){input.addEventListener("input",edit);input.addEventListener("change",edit);}
     form.addEventListener("reset",edit);
     form.addEventListener("submit",function(e){

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>ACED — The Daily Run</title>
-<meta name="description" content="One shared quiz run a day from any pack. Everyone gets the same run, so your score is comparable — reason it out, call your confidence, keep your streak." />
+<meta name="description" content="A daily practice run from your selected pack. Call your confidence, review your answers and keep your streak. Material can differ between players." />
 <link rel="canonical" href="https://acedhq.com/daily.html" />
 <meta name="theme-color" content="#070b08" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -13,7 +13,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="ACED" />
 <meta property="og:title" content="ACED — The Daily Run" />
-<meta property="og:description" content="One shared quiz run a day. Same run for everyone — reason it out, call your confidence, keep your streak." />
+<meta property="og:description" content="Daily practice from your selected pack. Call your confidence and review your answers; material can differ between players." />
 <meta property="og:url" content="https://acedhq.com/daily.html" />
 <meta property="og:image" content="https://acedhq.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
@@ -182,50 +182,24 @@
      nothing is doubled — aced-fx only fills what the page was missing. -->
 <script src="aced-fx.js"></script>
 <script src="aced-bridge.js"></script>
-<script>
-/* ===== PACK LOADER (shared with study.html) =====
-   Reads ?pack= (defaults to the pack you played last), loads packs/<id>.js -> window.ACED_PACK,
-   then the pack's question banks (each appends to window.ACED_QUESTIONS),
-   then calls window._dailyReady(). Identical strategy to study.html so the
-   Daily Run is content-agnostic and works for any pack. */
-(function loadPack(){
-  const params=new URLSearchParams(window.location.search);
-  const L=window.ACEDLibrary, B=window.ACEDBridge;
-  let dflt='world-capitals'; try{ if(L) dflt=L.lastPack(); }catch(e){}
-  const packId=(params.get('pack')||dflt).replace(/[^a-z0-9._-]/gi,'');
-  // Packs saved in the player's library run through the same bridge as the game.
-  try{
-    const mine=(L&&B&&!L.starter(packId))?L.get(packId):null;
-    if(mine){
-      window.ACED_PACK={id:mine.id,name:mine.name,modules:{}};
-      window.ACED_QUESTIONS=B.toEngineQuestions(mine);
-      window.addEventListener('DOMContentLoaded',function(){window._dailyReady&&window._dailyReady();});
-      return;
-    }
-  }catch(e){}
-  const ps=document.createElement('script');
-  ps.src='packs/'+packId+'.js';
-  ps.onerror=()=>{document.body.innerHTML='<div style="color:#ff5238;padding:40px;font-family:VT323,monospace;background:#000;height:100vh;font-size:22px">\\u26a0 Pack not found: <b>'+packId.replace(/[^a-z0-9._-]/gi,'')+'</b>. Pick a pack from the <a style="color:#5cffea" href="library.html">library</a>.</div>';};
-  ps.onload=()=>{
-    const P=window.ACED_PACK||{};const banks=[].concat(P.scripts||[],P.questionBanks||[]);
-    let i=0;(function next(){
-      if(i>=banks.length){window._dailyReady&&window._dailyReady();return;}
-      const s=document.createElement('script');s.src=banks[i++];s.onload=next;s.onerror=next;document.head.appendChild(s);
-    })();
-  };
-  document.head.appendChild(ps);
-})();
-</script>
-
 <div class="wrap" id="app" style="display:none"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="callout" id="callout" role="status" aria-live="polite"></div>
 
 <script>
 "use strict";
+(function(){
+// Kept in the same private closure as the real loader. Direct/legacy calls to
+// _dailyReady have no pending loader proof and must remain UNKNOWN.
+let pendingDailySource=null;
 window._dailyReady=function(){
 if(window._DAILY_BOOTED)return; window._DAILY_BOOTED=true;
 const PACK=window.ACED_PACK||{};
+const proof=pendingDailySource;pendingDailySource=null;
+const identity=Object.getOwnPropertyDescriptor(PACK,"id");
+const PUBLIC_SLUG=proof&&proof.pack===PACK&&proof.kind==="public"&&identity&&
+  Object.prototype.hasOwnProperty.call(identity,"value")&&identity.value===proof.slug&&
+  typeof proof.slug==="string"&&/^[a-z0-9][a-z0-9._-]*$/i.test(proof.slug)?proof.slug:null;
 const SECTION=(PACK.name)||(PACK.section)||"ACED";
 const MODLABEL=PACK.modules||{};
 
@@ -419,11 +393,11 @@ function renderHome(){
   const dateLong=fmtLong(TARGET_KEY);
   const freezeNote=(D.freezeUsedFor)?`<p class="muted">\u2744 A freeze token covered a missed day \u2014 your <em>${D.currentStreak}-day</em> streak is safe.</p>`:"";
   const challengeNote=(!IS_TODAY)?`<p class="muted">\u26a1 You're playing the run for <b>${esc(dateLong)}</b> (a challenge link). It still counts toward today if it is today.</p>`:"";
-  const challengeScoreNote=(CHALLENGE_SCORE!=null)?`<p class="muted" style="color:var(--gold)">\u2694 A friend challenged you on this exact run \u2014 <b>beat ${CHALLENGE_SCORE}</b> to win.</p>`:"";
+  const challengeScoreNote=(CHALLENGE_SCORE!=null)?`<p class="muted" style="color:var(--gold)">Shared score reference: <b>${CHALLENGE_SCORE}</b>. This does not establish identical questions.</p>`:"";
   app.innerHTML=topbarHTML()+ribbonHTML()+`<div class="card-shell">
     <div class="closeno">RUN #${CLOSE_NO} \u00b7 ${esc(dateLong)}</div>
     <h1>Today's Run</h1>
-    <p>${NUM_Q} ${esc(SECTION)} questions. Everyone gets the <b>same run</b> today \u2014 so your score is comparable, and a friend can run the exact same one.</p>
+    <p>${NUM_Q} ${esc(SECTION)} practice questions from the currently available material. Dates alone do not establish identical questions or comparable scores.</p>
     <p class="muted">Before each answer you'll <em>call your confidence</em>. Back yourself when you know it; hedge when you don't. Calibration is the whole game.</p>
     ${challengeNote}${challengeScoreNote}${freezeNote}
     <button class="btn gold" id="startBtn">\u25b6 START THE RUN</button>
@@ -610,7 +584,7 @@ function careerPanelHTML(fresh){
     </div>
     <div style="height:9px;border:1px solid var(--border);background:#040904;position:relative;overflow:hidden">
       <span style="position:absolute;inset:0;width:${pct}%;background:linear-gradient(90deg,var(--green-dim),var(--gold));box-shadow:0 0 6px var(--gold)"></span></div>
-    <div style="font-family:'VT323';font-size:13px;color:var(--grey);text-align:center;margin-top:6px">${next} \u00b7 climb from Intern to Partner in the full game \u2192</div>
+    <div style="font-family:'VT323';font-size:13px;color:var(--grey);text-align:center;margin-top:6px">${next} \u00b7 build your game rank in the full game \u2192</div>
   </div>`;
 }
 function renderResults(rec,fresh){
@@ -619,7 +593,7 @@ function renderResults(rec,fresh){
   const calClass=rec.calib>=70?"good":(rec.calib>=45?"":"bad");
   const headline=fresh?(rec.perfect?"PERFECT RUN":"RUN COMPLETE"):"TODAY'S RUN \u2014 DONE";
   const weak=weakModulesHTML();
-  const vsLine=(CHALLENGE_SCORE!=null)?`<div style="border:1px solid var(--gold);background:#140f02;color:var(--gold);font-family:'VT323';font-size:19px;text-align:center;padding:12px;margin:10px 0">${rec.score>CHALLENGE_SCORE?("\u2694 You win the challenge \u2014 <b>"+rec.score+"</b> vs "+CHALLENGE_SCORE+"."):(rec.score===CHALLENGE_SCORE?("\u2694 Dead tie \u2014 <b>"+rec.score+"</b> each."):("\u2694 They edged you \u2014 "+rec.score+" vs <b>"+CHALLENGE_SCORE+"</b>. Share back for the rematch."))}</div>`:"";
+  const vsLine=(CHALLENGE_SCORE!=null)?`<div style="border:1px solid var(--gold);background:#140f02;color:var(--gold);font-family:'VT323';font-size:19px;text-align:center;padding:12px;margin:10px 0">Shared score reference: ${CHALLENGE_SCORE}. Your score: ${rec.score}. This does not establish identical questions.</div>`:"";
   app.innerHTML=topbarHTML()+ribbonHTML()+`<div class="card-shell">
     <div class="closeno">RUN #${rec.close} \u00b7 ${esc(fmtLong(TARGET_KEY))}</div>
     <h1>${headline}</h1>
@@ -693,11 +667,11 @@ function calibCoachLine(rec){
   const r=rec.glyphs.filter(g=>g==="r").length;  // overconfident misses
   const y=rec.glyphs.filter(g=>g==="y").length;  // underconfident hits
   let msg;
-  if(rec.perfect&&rec.calib>=90)msg="Flawless and well-called. This is exactly the head you want on test day.";
-  else if(r>=2)msg="A couple of confident misses dragged you down \u2014 the fix isn't more studying, it's noticing when you only *think* you know.";
-  else if(y>=3)msg="You knew more than you bet. Trust your prep \u2014 backing yourself when you're right is free points.";
-  else if(acc>=0.7)msg="Solid. Tighten your confidence calls and the score climbs without learning a single new rule.";
-  else msg="Rough run \u2014 but every miss here is a miss you won't make on the real thing. Check the review.";
+  if(rec.perfect&&rec.calib>=90)msg="Every question in this run was answered correctly. Confidence calibration describes these submitted multiple-choice answers only.";
+  else if(r>=2)msg="This run included several HIGH-confidence misses. Review those questions; this result does not predict future performance.";
+  else if(y>=3)msg="Several LOW-confidence answers were correct in this run. This is not evidence of unaided recall.";
+  else if(acc>=0.7)msg="At least 70% of this run's questions were answered correctly. This is not a prediction of test performance.";
+  else msg="Review this run's questions. A miss here does not predict or prevent a future mistake.";
   return `<p class="muted" style="text-align:center;margin:2px 0 6px">${esc(msg)}</p>`;
 }
 
@@ -708,7 +682,7 @@ function weakModulesHTML(){
   const rows=mods.map(m=>({m,seen:D.modSeen[m],pct:Math.round(100*(D.modCorrect[m]||0)/D.modSeen[m])}))
     .sort((a,b)=>a.pct-b.pct).slice(0,3);
   if(!rows.length)return "";
-  return `<div class="weakbox"><div class="wt">YOUR WEAK SPOTS (ALL DAILIES)</div>`+
+  return `<div class="weakbox"><div class="wt">LOWER RECORDED DAILY ACCURACY</div>`+
     rows.map(r=>`<div class="wrow"><span class="wn">${esc(MODLABEL[r.m]||r.m)}</span><span class="wbar ${r.pct>=70?'ok':''}"><span style="width:${r.pct}%"></span></span><span class="wp">${r.pct}%</span></div>`).join("")+
     `</div>`;
 }
@@ -717,22 +691,35 @@ function weakModulesHTML(){
 function shareString(rec){
   const tape=rec.glyphs.map(g=>GLYPH_EMOJI[g]).join("");
   const lines=[
-    `ACED \u2014 ${SECTION} Daily Run #${rec.close}`,
+    PUBLIC_SLUG?`ACED \u2014 ${SECTION} Daily Run #${rec.close}`:"ACED Daily result",
     tape,
     `Score ${rec.score} \u00b7 ${rec.correct}/${rec.total} \u00b7 calibration ${rec.calib}%${rec.perfect?" \u00b7 PERFECT":""}`,
     `Streak ${D.currentStreak}\ud83d\udd25`,
-    `Same run, your turn:`
+    shareScope()
   ];
   // include a friend-challenge link to this exact run
-  const base=location.href.split('?')[0];
-  lines.push(`${base}?date=${TARGET_KEY}&s=${rec.score}`);
+  lines.push(shareURL(rec));
   return lines.join("\n");
+}
+function shareScope(){
+  return PUBLIC_SLUG?"Try this public practice pack. Material can change, so matching dates do not guarantee identical questions.":
+    "Personal practice result. This does not identify or link to the question set.";
+}
+function shareURL(rec){
+  if(!PUBLIC_SLUG)return "https://acedhq.com/library.html";
+  const url=new URL("https://acedhq.com/daily.html");url.searchParams.set("pack",PUBLIC_SLUG);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(TARGET_KEY)){
+    const parsed=new Date(TARGET_KEY+"T00:00:00Z");
+    if(Number.isFinite(parsed.getTime())&&parsed.toISOString().slice(0,10)===TARGET_KEY)url.searchParams.set("date",TARGET_KEY);
+  }
+  if(Number.isInteger(rec.score)&&rec.score>=0&&rec.score<=9999999)url.searchParams.set("s",String(rec.score));
+  return url.href;
 }
 async function shareText(rec){
   const text=shareString(rec);
   function _award(){ try{ if(window.ACEDFX)ACEDFX.ach.unlock("share"); }catch(e){} }
   try{
-    if(navigator.share){await navigator.share({title:"ACED Daily Run",text});toast("Shared.");_award();return;}
+    if(navigator.share){await navigator.share({title:PUBLIC_SLUG?"ACED Daily Run":"ACED Daily result",text});toast("Shared.");_award();return;}
   }catch(e){/* fall through to clipboard */}
   // Prefer ACEDFX.copy (Clipboard API + an execCommand/textarea fallback for older Safari).
   let ok=false;
@@ -762,7 +749,7 @@ function makeCardDataURL(rec){
   x.fillStyle='#22ff66';x.fillRect(0,0,1200,8);x.fillStyle='#ff5cb8';x.fillRect(0,622,1200,8);
   // logo
   x.fillStyle='#22ff66';x.font='bold 64px "Courier New",monospace';x.fillText('ACED',60,108);
-  x.fillStyle='#5a7058';x.font='26px "Courier New",monospace';x.fillText(`${SECTION} \u00b7 Daily Run #${rec.close}`,60,150);
+  x.fillStyle='#5a7058';x.font='26px "Courier New",monospace';x.fillText(PUBLIC_SLUG?`${SECTION} \u00b7 Daily Run #${rec.close}`:"ACED Daily result",60,150);
   // tape
   const sz=96,gap=16,startX=60,ty=210;const colors={g:'#22ff66',y:'#ffb627',r:'#ff5238',k:'#2a3a1c'};
   rec.glyphs.forEach((gl,i)=>{x.fillStyle=colors[gl];const px=startX+i*(sz+gap);x.fillRect(px,ty,sz,sz);
@@ -776,7 +763,8 @@ function makeCardDataURL(rec){
   const stats=[['ACCURACY',`${rec.correct}/${rec.total}`,'#5cffea'],['CALIBRATION',`${rec.calib}%`,'#ffb627'],['STREAK',`${D.currentStreak}d`,'#9be36b']];
   let sx=560;stats.forEach(([l,v,col])=>{x.fillStyle=col;x.font='bold 54px "Courier New",monospace';x.fillText(v,sx,455);x.fillStyle='#5a6a55';x.font='20px "Courier New",monospace';x.fillText(l,sx,485);sx+=220;});
   // tagline
-  x.fillStyle='#ff5cb8';x.font='italic 28px "Courier New",monospace';x.fillText(rec.perfect?'Perfect run. Calibrated and clean.':'Study anything like a deckbuilding roguelike.',60,580);
+  x.fillStyle='#ff5cb8';x.font='18px "Courier New",monospace';x.fillText(shareScope(),60,570);
+  x.font='14px "Courier New",monospace';x.fillText(shareURL(rec),60,604);
   return c.toDataURL('image/png');
 }
 function recordToLeaderboard(rec){
@@ -824,6 +812,40 @@ app.style.display="block";
 try{ if(window.ACEDCore&&ACEDCore.sync) ACEDCore.sync.pull(); }catch(e){} // cross-device sync (no-op until backend configured)
 renderHome();
 }; // ===== end _dailyReady =====
+function acceptDailySource(kind,pack,slug){
+  pendingDailySource={kind,pack,slug};
+  try{window._dailyReady&&window._dailyReady();}finally{pendingDailySource=null;}
+}
+/* Original loader precedence and bank completion are preserved. Its branch
+   supplies only ephemeral presentation provenance, never a stored field. */
+(function loadPack(){
+  const params=new URLSearchParams(window.location.search);
+  const L=window.ACEDLibrary, B=window.ACEDBridge;
+  let dflt='world-capitals'; try{ if(L) dflt=L.lastPack(); }catch(e){}
+  const packId=(params.get('pack')||dflt).replace(/[^a-z0-9._-]/gi,'');
+  try{
+    const mine=(L&&B&&!L.starter(packId))?L.get(packId):null;
+    if(mine){
+      window.ACED_PACK={id:mine.id,name:mine.name,modules:{}};
+      window.ACED_QUESTIONS=B.toEngineQuestions(mine);
+      const supplied=window.ACED_PACK;
+      window.addEventListener('DOMContentLoaded',function(){acceptDailySource("private",supplied,null);});
+      return;
+    }
+  }catch(e){}
+  const ps=document.createElement('script');
+  ps.src='packs/'+packId+'.js';
+  ps.onerror=()=>{document.body.innerHTML='<div style="color:#ff5238;padding:40px;font-family:VT323,monospace;background:#000;height:100vh;font-size:22px">\\u26a0 Pack not found: <b>'+packId.replace(/[^a-z0-9._-]/gi,'')+'</b>. Pick a pack from the <a style="color:#5cffea" href="library.html">library</a>.</div>';};
+  ps.onload=()=>{
+    const P=window.ACED_PACK||{};const banks=[].concat(P.scripts||[],P.questionBanks||[]);
+    let i=0;(function next(){
+      if(i>=banks.length){acceptDailySource("public",P,packId);return;}
+      const s=document.createElement('script');s.src=banks[i++];s.onload=next;s.onerror=next;document.head.appendChild(s);
+    })();
+  };
+  document.head.appendChild(ps);
+})();
+})();
 </script>
 <!-- optional growth modules (harmless if they no-op). social.js gives a local leaderboard hook. -->
 <script src="social.js"></script>

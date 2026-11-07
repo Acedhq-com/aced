@@ -9,7 +9,8 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "../..");
 const read = name => fs.readFileSync(path.join(root, name), "utf8");
 const html = read("study.html");
-const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script(?:\s+[^>]*)?>/gi)].map(m => m[1]);
+const scriptBodies = source => require("./product-success-s1-tests").scripts(source).map(s=>s.code);
+const scripts = scriptBodies(html);
 const loader = scripts.find(s => s.includes("(function loadPack()"));
 const engine = scripts.find(s => s.includes("window._packReady=function"));
 const end = "}; // ===== end window._packReady =====";
@@ -27,6 +28,11 @@ globalThis.__runtime = {
   renderAcctBtn, openAcctModal, showModal, hideModal, toast,
   runQuiz, launchReview, updateReviewBadge, explanationsView, studyReport, runInfoView,
   readinessReport, nemesisRise, codexView, deckView, calibGridHTML, calibData,
+  masteryPct, addMastery, readinessPct, weakestModule, renderCalibration, launchMockExam,
+  win, lose, endRunSummary, confirmEndRun,
+  shareCardArgs, moduleStatus, TREATMENTS, rulesCardHTML,
+  get pack(){return PACK;}, get allMods(){return ALLMODS;}, get pay(){return ACEDPay;},
+  get owns(){return _ownsSection;},set owns(value){_ownsSection=value;},
   fastAnimations(){
     wait=async function(){};
     countUp=async function(el,to){if(el)el.textContent=String(to);};
@@ -35,6 +41,11 @@ globalThis.__runtime = {
 `;
 
 function createRuntime(options = {}) {
+  const sourceRead=options.read||read;
+  const alternate=options.read?scriptBodies(sourceRead("study.html")):scripts;
+  const actualLoader=alternate.find(s=>s.includes("(function loadPack()"));
+  const actualEngine=alternate.find(s=>s.includes("window._packReady=function"));
+  assert.ok(actualLoader&&actualEngine&&actualEngine.split(end).length===2,"actual source boundaries");
   const id = options.id || "runtime-fixture";
   let now = options.now;
   class Clock extends Date {
@@ -126,21 +137,21 @@ function createRuntime(options = {}) {
   vm.createContext(context);
   const evaluate = (source, filename) => vm.runInContext(source, context, { filename, timeout: 3000 });
   ["aced-library.js", "aced-bridge.js", "aced-core.js", "packs/core-jokers.js"].forEach(file =>
-    evaluate(read(file), file));
+    evaluate(sourceRead(file), file));
   const raw = options.raw || { id, name: "Runtime fixture", questions: [
     { id: "fixture-q1", q: "Synthetic question?", source: "Fixture topic",
       choices: ["Synthetic yes", "Synthetic no"], answer: 0, explain: "Synthetic explanation." }
   ] };
-  const saved = context.ACEDLibrary.save(raw);
+  const saved = options.loadExisting ? context.ACEDLibrary.get(id) : context.ACEDLibrary.save(raw);
   assert.equal(saved.id, id);
-  evaluate(engine.replace(end, hook + end), "study.html:actual-engine");
+  evaluate(actualEngine.replace(end, hook + end), "study.html:actual-engine");
   const ready = context._packReady;
   context._packReady = function () {
     if (options.configurePack) options.configurePack(context.ACED_PACK, context);
     if (options.configureContext) options.configureContext(context);
     ready();
   };
-  evaluate(loader, "study.html:actual-loader");
+  evaluate(actualLoader, "study.html:actual-loader");
   assert.ok(context.__runtime, "actual library loader must invoke actual engine");
   return {
     context, api: context.__runtime, memory, document, elements, writes, sanitized,
@@ -154,7 +165,7 @@ function createRuntime(options = {}) {
       return nodes;
     },
     modal() { return document.getElementById("modal").innerHTML; },
-    loaderSource: loader, evaluate
+    loaderSource: actualLoader, evaluate
   };
 }
 
