@@ -447,6 +447,18 @@ async function run(options={}) {
     for(const bg of backgrounds){assert.ok(contrast(border,bg)>=3);assert.ok(contrast(focus,bg)>=3);}
     // Palette arithmetic on known owned source is not a computed-style/native measurement.
   });
+  await test("modern: owned text fields have contrasting boundaries without changing radios or focus",()=>{
+    const html=read("importer.html"),parts=html.split('<style id="aced-product-success-import-borders">');assert.equal(parts.length,2);
+    const style=parts[1].split("</style>")[0].trim(),selector='#pack-form input:not([type]),#pack-form input[type="text"],#pack-form textarea';
+    assert.ok(style.startsWith(selector+"{"));assert.ok(style.endsWith("}"));
+    const body=style.slice(selector.length+1,-1),border=body.match(/^border-color:(#[0-9a-f]{6})$/i)?.[1];assert.ok(border);
+    const css=read("app.css"),literal=name=>{const matches=[...css.matchAll(new RegExp("--"+name+":\\s*(#[0-9a-f]{6});","gi"))];assert.ok(matches.length);return matches.at(-1)[1];};
+    function luminance(hex){const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+    function contrast(a,b){const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+    assert.ok(css.includes(":focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }"));
+    for(const name of ["bg","surface","surface-2"]){assert.ok(contrast(border,literal(name))>=3);assert.ok(contrast(literal("gold"),literal(name))>=3);}
+    // Scoped source and known palette arithmetic are not native computed-style measurements.
+  });
   await test("classic: malformed PDF item/width/rotation rejects actual extraction without partial Build",async()=>{
     for(const bad of [{...item("first",50),width:NaN},{...item("first",50),width:-1},{...item("first",50),transform:[1,0,0.01,1,50,700]},{...item("first",50),str:17},null]){
       const f=classic(read);f.pdf([[item("alpha:"),bad]]);await f.change(inputFile("fixture.pdf",""));await tick();assert.equal(f.ensure("uBuild").disabled,true);assert.equal(f.api.draft.length,0);assert.match(f.ensure("uStatus").textContent,/could not be read/);
