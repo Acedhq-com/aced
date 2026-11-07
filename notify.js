@@ -120,9 +120,6 @@
 
     var input = form.querySelector('input[type="email"]'), button = form.querySelector('[type="submit"]') || form.querySelector("button");
     var note = noteFor(form, input), current = null, revision = 0, result = false;
-    var buttonLabel = button ? button.textContent.trim() : "";
-    if (!buttonLabel) buttonLabel = "NOTIFY ME";
-
     form.setAttribute("data-aced-notify-form", "");
     if (input) input.setAttribute("data-aced-notify-email", "");
     if (button) {
@@ -130,7 +127,7 @@
       button.setAttribute("aria-disabled", "false");
       button.setAttribute("aria-busy", "false");
       button.disabled = false;
-      if (!button.textContent.trim()) button.textContent = buttonLabel;
+      if (!button.textContent.trim()) button.textContent = "NOTIFY ME";
     }
     var row = form.classList.contains("formrow") ? form : form.querySelector(".formrow");
     if (row && input && row.contains(input) && (!button || row.contains(button))) row.setAttribute("data-aced-notify-row", "");
@@ -149,7 +146,11 @@
       button.disabled = disabled;
       button.setAttribute("aria-disabled", String(disabled));
       button.setAttribute("aria-busy", String(busy));
-      button.textContent = busy ? "SUBMITTING..." : buttonLabel;
+      if (busy) {
+        button.textContent = "SUBMITTING...";
+      } else if (button.textContent.trim() === "SUBMITTING...") {
+        button.textContent = "NOTIFY ME";
+      }
     }
 
     function show(message, ok) {
@@ -235,8 +236,9 @@
         endpoint: endpoint,
         revision: revision,
         deadline: Date.now() + DEADLINE,
-        controller: null,
-        timer: null
+        disabled: button ? button.disabled : false,
+        busy: form.getAttribute("aria-busy"),
+        controller: null
       };
       if (typeof window.AbortController === "function") {
         try { op.controller = new window.AbortController(); } catch (_) {}
