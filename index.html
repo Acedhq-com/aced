@@ -195,14 +195,15 @@
   /* email capture */
   .capture{border:1px solid var(--border);background:linear-gradient(180deg,var(--panel),var(--panel2));padding:24px 20px}
   .capture .h2{margin-bottom:8px}
-  .capture p{color:var(--grey);font-size:18px;margin:0 0 18px}
+  .capture p{color:var(--white);font-size:18px;margin:0 0 18px;overflow-wrap:anywhere}
+  .capture a{color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
   .formrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .formrow label{position:absolute;left:-9999px}
-  .formrow input{flex:1;min-width:220px;font-family:'VT323';font-size:20px;background:#04140d;border:1px solid var(--border);color:var(--white);padding:13px 14px}
-  .formrow input:focus{border-color:var(--cyan)}
-  .formrow button{font-family:'Press Start 2P';font-size:10px;padding:14px 18px;border:1px solid var(--cyan);background:#04201d;color:var(--cyan);cursor:pointer}
+  .formrow input{flex:1;min-width:0;width:100%;box-sizing:border-box;font-family:'VT323';font-size:20px;background:#04140d;border:1px solid var(--cyan);color:var(--white);padding:13px 14px}
+  .formrow input:focus,.formrow button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+  .formrow button{min-width:44px;min-height:44px;max-width:100%;overflow-wrap:anywhere;font-family:'Press Start 2P';font-size:10px;padding:14px 18px;border:1px solid var(--cyan);background:#04201d;color:var(--cyan);cursor:pointer}
   .formrow button:hover{box-shadow:0 0 12px rgba(92,255,234,.4)}
-  .capnote{font-size:15px;color:var(--grey);margin-top:12px;min-height:20px}
+  .capnote{font-size:15px;color:var(--white);margin-top:12px;min-height:20px;overflow-wrap:anywhere}
   .capnote.ok{color:var(--money)}
 
   footer{border-top:1px solid var(--border);padding:30px 0 50px;color:var(--grey);font-size:16px;text-align:center}
@@ -237,7 +238,7 @@
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACED","applicationCategory":"EducationalApplication","operatingSystem":"Web","url":"https://acedhq.com/","description":"ACED is a study-game engine: paste any material and it turns into a roguelike you actually want to play, with real questions, confidence scoring, and spaced review woven into the core loop. Free, no signup.","author":{"@type":"Person","name":"Story Shaw"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Free to play, no signup."}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is ACED free?","acceptedAnswer":{"@type":"Answer","text":"Yes — the core game is free with no signup. Paste your own notes or play a pack from the library and start a run in seconds."}},{"@type":"Question","name":"What can I study with ACED?","acceptedAnswer":{"@type":"Answer","text":"Anything you can write as short pairs. Class notes, textbook chapters, language vocab, code snippets, trivia, Wikipedia articles — any subject. Paste text, upload a PDF, or browse the library for a ready-to-play pack."}},{"@type":"Question","name":"How does it work?","acceptedAnswer":{"@type":"Answer","text":"You draw cards, play poker hands, and buy jokers to clear score targets called blinds. Playing a hand asks a question from whatever material you loaded. Answer right, choose your confidence, and misses come back on a spaced schedule."}},{"@type":"Question","name":"Is this only for one type of exam?","acceptedAnswer":{"@type":"Answer","text":"No. ACED is a study-game engine, not a subject-specific app. The same roguelike loop runs on any content you give it — school subjects, hobbies, professional material, or anything you're just curious about."}},{"@type":"Question","name":"Do I need an account?","acceptedAnswer":{"@type":"Answer","text":"No. Play with no account. Optional one-tap email sign-in syncs progress across devices."}},{"@type":"Question","name":"Where are my notes stored?","acceptedAnswer":{"@type":"Answer","text":"Pasted text, PDFs, and Word files are parsed entirely in your browser. The deck it builds is saved on your own device. Nothing you paste is sent to a server or used to train any model."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is ACED free?","acceptedAnswer":{"@type":"Answer","text":"Yes — the core game is free with no signup. Paste your own notes or play a pack from the library and start a run in seconds."}},{"@type":"Question","name":"What can I study with ACED?","acceptedAnswer":{"@type":"Answer","text":"Anything you can write as short pairs. Class notes, textbook chapters, language vocab, code snippets, trivia, Wikipedia articles — any subject. Paste text, upload a PDF, or browse the library for a ready-to-play pack."}},{"@type":"Question","name":"How does it work?","acceptedAnswer":{"@type":"Answer","text":"You draw cards, play poker hands, and buy jokers to clear score targets called blinds. Playing a hand asks a question from whatever material you loaded. Answer right, choose your confidence, and misses come back on a spaced schedule."}},{"@type":"Question","name":"Is this only for one type of exam?","acceptedAnswer":{"@type":"Answer","text":"No. ACED is a study-game engine, not a subject-specific app. The same roguelike loop runs on any content you give it — school subjects, hobbies, professional material, or anything you're just curious about."}},{"@type":"Question","name":"Do I need an account?","acceptedAnswer":{"@type":"Answer","text":"No account is required to play. Optional account sync can send progress and associated IDs, labels and history to ACED's backend when available. See Data handling for storage and deletion limits."}},{"@type":"Question","name":"Where are my notes stored?","acceptedAnswer":{"@type":"Answer","text":"Supported pasted text and files are processed in your browser to build a pack. The parser does not upload the original document for processing. Packs are saved in this browser when storage is available. Optional account sync can send saved progress to ACED's backend, including associated IDs, source or topic labels, review and calibration history, and event records. These fields can include text you entered; sync is not limited to XP and streaks. The Library's delete action targets a local pack and that pack’s data in this browser. It is not a clear-all tool for saved drafts, other browser data, cloud copies or launch-list records. This page does not provide a cloud or launch-list deletion control."}}]}
 </script>
 </head>
 <body>
@@ -479,21 +480,23 @@ Spanish: perro / dog</div>
   <section class="sec" id="trust">
     <div class="wrap">
       <div class="trust">
-        <h3>YOUR NOTES STAY YOURS &mdash; HERE'S EXACTLY WHAT THAT MEANS.</h3>
+        <h3>YOUR NOTES AND PROGRESS: DATA HANDLING</h3>
         <div class="trust-grid">
           <div class="trust-cell">
             <div class="k">NOTES PROCESSING</div>
-            <p>Pasted text, PDFs, and Word files are parsed <b style="color:var(--cyan)">entirely in your browser</b>. Nothing you paste or upload is sent to a server, and nothing is used to train any model.</p>
+            <p>Supported pasted text and files are processed in your browser to build a pack. The parser does not upload the original document for processing.</p>
           </div>
           <div class="trust-cell">
             <div class="k">STORAGE &amp; RETENTION</div>
-            <p>The deck the parser builds is saved on <b style="color:var(--cyan)">your own device</b> in local browser storage. Optional email sign-in only syncs progress metadata (XP, streaks, deck IDs) &mdash; never your note contents.</p>
+            <p>Packs are saved in this browser when storage is available. Optional account sync can send saved progress to ACED's backend, including associated IDs, source or topic labels, review and calibration history, and event records. These fields can include text you entered; sync is not limited to XP and streaks.</p>
           </div>
           <div class="trust-cell">
             <div class="k">CONTROL &amp; NO STREAK-GUILT</div>
-            <p>Delete a deck or clear everything from the <a href="library.html" style="color:var(--green);text-decoration:underline;text-underline-offset:3px">library</a> at any time. No punishment for missing a day &mdash; streaks celebrate consistency, not shame.</p>
+            <p>The <a href="library.html" style="color:var(--green);text-decoration:underline;text-underline-offset:3px">Library</a>'s delete action targets a local pack and that pack’s data in this browser. It is not a clear-all tool for saved drafts, other browser data, cloud copies or launch-list records. This page does not provide a cloud or launch-list deletion control.</p>
+            <p>No punishment for missing a day &mdash; streaks celebrate consistency, not shame.</p>
           </div>
         </div>
+        <p style="color:var(--white);font-size:16px;margin:16px 0 0">Launch-list forms send the email and form source you choose to submit to the notification service. These updated forms do not add a new address to browser progress storage. Older versions may have stored addresses in browser data that can still be included in optional sync. Request acceptance does not confirm email delivery.</p>
         <p style="color:var(--grey);font-size:16px;margin:16px 0 0">Bigger uploads and optional AI deck-generation are coming later as a paid upgrade. When they land, we'll spell out exactly what leaves the browser and let you opt in per deck. The core game stays free.</p>
       </div>
     </div>
@@ -505,10 +508,11 @@ Spanish: perro / dog</div>
       <div class="capture">
         <div class="eyebrow">stay in the loop</div>
         <h2 class="h2">Get in early.</h2>
-        <p>One email when big features land &mdash; AI deck-generation from a topic name, bigger uploads, and new game modes. No spam, no streak-guilt.</p>
-        <form class="formrow" id="capForm" data-endpoint="" novalidate>
+        <p>Get updates about ACED features and study packs. Submit your email to request launch updates.</p>
+        <p id="capPurpose">Submitting sends your email and this form's source to the notification service. See <a href="#trust">Data handling</a>.</p>
+        <form class="formrow" id="capForm" data-aced-notify data-source="home" data-endpoint="" novalidate>
           <label for="capEmail">Email address</label>
-          <input id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" />
+          <input id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" aria-describedby="capPurpose capNote" />
           <button type="submit">NOTIFY ME</button>
         </form>
         <div class="capnote" id="capNote" role="status" aria-live="polite"></div>
@@ -534,6 +538,7 @@ Spanish: perro / dog</div>
 <!-- streak read shares the Daily Run store via aced-core -->
 <script src="aced-config.js?v=5"></script>
 <script src="aced-core.js"></script>
+<script src="notify.js"></script>
 <script src="aced-account.js"></script>
 <script src="aced-progress.js"></script>
 <script src="aced-library.js"></script>
@@ -562,26 +567,6 @@ Spanish: perro / dog</div>
       }
     }
   }catch(e){}
-
-  // email capture — front-end scaffold.
-  var form=document.getElementById("capForm"), note=document.getElementById("capNote");
-  if(form){
-    form.addEventListener("submit", function(e){
-      e.preventDefault();
-      var email=(document.getElementById("capEmail").value||"").trim();
-      var valid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-      if(!valid){ note.className="capnote"; note.textContent="Enter a valid email and we'll add you to the list."; return; }
-      var endpoint=form.getAttribute("data-endpoint")||window.ACED_CAPTURE_ENDPOINT||(window.ACED_API_URL?String(window.ACED_API_URL).replace(/\/$/,"")+"/notify":"");
-      try{ if(window.ACEDCore){ var subs=ACEDCore.store.get("subscribers",[]); subs.push({email:email,t:Date.now()}); ACEDCore.store.set("subscribers",subs); ACEDCore.analytics.track("email_captured",{}); } }catch(_){}
-      function done(){ note.className="capnote ok"; note.textContent="You're on the early list. Talk soon."; form.reset(); }
-      if(endpoint){
-        try{
-          fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,source:"home"})})
-            .then(done).catch(done);
-        }catch(_){ done(); }
-      } else { done(); }
-    });
-  }
 
   // engine-first entry: paste notes -> hand off to the importer, which builds + plays
   var bootGo=document.getElementById("bootGo"), bootNotes=document.getElementById("bootNotes");
