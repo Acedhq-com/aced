@@ -25,6 +25,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
 <style>
+  .recording-status{box-sizing:border-box;min-width:0;margin:12px 0;padding:12px;border:1px solid #7fae90;background:#0e1a0d;color:#d8f5d8;font-size:18px;line-height:1.4;text-align:left;overflow-wrap:anywhere}
+  .recording-status p{margin:0 0 8px}.recording-status p:last-child{margin-bottom:0}
+  .shopbar.recording-foot{display:block}.account-actions .act{min-height:44px;max-width:100%;white-space:normal}
+  .recording-live{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   :root{--bg:#0a0e07;--bg2:#0d1409;--panel:#0e1a0d;--panel2:#13230f;--green:#22ff66;--green-dim:#0fa84a;--amber:#ffb627;--red:#ff5238;--cyan:#5cffea;--magenta:#ff5cb8;--white:#d8f5d8;--grey:#5a7058;--border:#1a2e15;--gold:#ffd23f;--money:#9be36b;
     --rev:#5cffea;--exp:#ff8a5c;--asset:#7dff9e;--liab:#ff5cb8;--equity:#ffd23f;}
   html,body{margin:0;padding:0;background:#000;color:var(--green);font-family:'VT323',ui-monospace,monospace;font-size:20px;line-height:1.2;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
@@ -1068,6 +1072,7 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
   </aside>
 </div>
 <div class="toast" id="toast"></div>
+<div class="recording-live" id="recordingStatusLive" role="status" aria-live="polite" aria-atomic="true"></div>
 <div class="callout" id="callout"></div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <!-- ===== TUTORIAL OVERLAY ===== -->
@@ -1279,6 +1284,7 @@ let QBANK=[];
    local-storage wrapped in try/catch with an in-memory Map fallback. Sandboxed iframes,
    private windows, and storage-disabled browsers all gracefully degrade to a per-session
    cache instead of throwing. Keys are namespaced under "aced:<pack>:<key>". */
+let missedEverAccess; // Private to this engine realm; never part of the general store API.
 const ACED_STORE=(function(){
   const PACKID=(PACK&&PACK.id)?PACK.id:"default";
   const NS="aced:"+PACKID+":";
@@ -1293,6 +1299,94 @@ const ACED_STORE=(function(){
     if(lsOk){ try{ window["local"+"Storage"].setItem(NS+k,v); return true; }catch(e){ mem[k]=v; return false; } }
     mem[k]=v; return false;
   }
+  // This one history map needs raw knowledge and accepted consumption. Do not
+  // project a failed read/corrupt JSON into an empty historical map.
+  let missedKnown=false, missedRaw=null, missedShadow=null;
+  const missedEvents=Object.create(null);
+  function missedCopy(v,stack){
+    if(v===null||typeof v==="string"||typeof v==="boolean")return v;
+    if(typeof v==="number"&&Number.isFinite(v))return v;
+    if(!v||typeof v!=="object")throw Error("unsupported");
+    const array=Array.isArray(v),proto=Object.getPrototypeOf(v);
+    if(!array&&proto!==null&&proto!==Object.prototype)throw Error("unsupported");
+    stack=stack||[];
+    if(stack.indexOf(v)>=0||Object.getOwnPropertySymbols(v).length)throw Error("unsupported");
+    const names=Object.getOwnPropertyNames(v),keys=Object.keys(v);
+    if(array&&(keys.length!==v.length||names.length!==v.length+1))throw Error("unsupported");
+    const out=array?Object.setPrototypeOf([],null):Object.create(null);
+    stack.push(v);
+    names.forEach(function(k){
+      if(array&&k==="length")return;
+      const d=Object.getOwnPropertyDescriptor(v,k);
+      if(!d.enumerable||!Object.prototype.hasOwnProperty.call(d,"value")||
+        (array&&(!/^(0|[1-9]\d*)$/.test(k)||Number(k)>=v.length)))throw Error("unsupported");
+      Object.defineProperty(out,k,{value:missedCopy(d.value,stack),enumerable:true,writable:true,configurable:true});
+    });
+    stack.pop();
+    return out;
+  }
+  function missedSnapshot(){
+    if(missedShadow)return {map:missedShadow,durable:false};
+    let readable=false;
+    try{
+      const raw=window["local"+"Storage"].getItem(NS+"missedEver");
+      missedRaw=raw;missedKnown=true;readable=true;
+    }catch(e){}
+    if(!missedKnown)return null;
+    try{
+      if(missedRaw!==null&&typeof missedRaw!=="string")return null;
+      const map=missedRaw===null?Object.create(null):JSON.parse(missedRaw);
+      if(!map||typeof map!=="object"||Array.isArray(map))return null;
+      return {map:missedCopy(map),durable:readable};
+    }catch(e){return null;}
+  }
+  function missedTruth(map,k){
+    const d=Object.getOwnPropertyDescriptor(map,k);
+    return !!(d&&Object.prototype.hasOwnProperty.call(d,"value")&&d.value);
+  }
+  function missedChange(k,consume){
+    if(!k)return false;
+    if(Object.prototype.hasOwnProperty.call(missedEvents,k)){
+      const pending=missedEvents[k]==="pending";
+      if(consume&&pending)missedEvents[k]="consumed";
+      else if(!consume)missedEvents[k]="pending";
+      return consume?pending:true;
+    }
+    const snapshot=missedSnapshot();
+    if(!snapshot){
+      if(!consume)Object.defineProperty(missedEvents,k,{value:"pending",writable:true,enumerable:true});
+      return false;
+    }
+    const truth=missedTruth(snapshot.map,k);
+    if(consume?!truth:truth)return false;
+    let candidate,prepared;
+    try{
+      candidate=missedCopy(snapshot.map);
+      if(consume)delete candidate[k];
+      else Object.defineProperty(candidate,k,{value:1,enumerable:true,writable:true,configurable:true});
+      prepared=JSON.stringify(missedCopy(candidate));
+      if(typeof prepared!=="string")throw Error("unsupported");
+    }catch(e){
+      if(!consume)Object.defineProperty(missedEvents,k,{value:"pending",writable:true,enumerable:true});
+      return false;
+    }
+    if(snapshot.durable&&_write("missedEver",prepared)){
+      missedKnown=true;missedRaw=prepared;
+    }else{
+      // Full known-map authority for this realm, with no retry/stale reread.
+      missedShadow=candidate;
+    }
+    return true;
+  }
+  missedEverAccess={
+    has(k){
+      if(!k)return false;
+      if(Object.prototype.hasOwnProperty.call(missedEvents,k))return missedEvents[k]==="pending";
+      const snapshot=missedSnapshot();return !!(snapshot&&missedTruth(snapshot.map,k));
+    },
+    add(k){return missedChange(k,false);},
+    consume(k){return missedChange(k,true);}
+  };
   return {
     get(k,fallback){ const raw=_read(k); if(raw==null)return fallback; try{ return JSON.parse(raw); }catch(e){ return fallback; } },
     set(k,v){ try{ _write(k,JSON.stringify(v)); }catch(e){} },
@@ -1618,7 +1712,57 @@ function offerStudyBreak(){
 }
 
 // ===== POP QUIZ (v6) =====
-let AUDIT=null; // {q, modKey, confidence}
+let AUDIT=null; // {q, modKey, confidence, recording: transient submitted results}
+const RECORDING_SCOPE="Recording status describes these answer updates, not all game progress or cloud sync.";
+const RECORDING_COPY=[
+  "recorded in this browser.",
+  "current progress update accepted in this browser; some historical fields or totals remain unknown.",
+  "recorded for this page session only, not saved to browser storage.",
+  "current progress update accepted for this page session only; some historical fields or totals remain unknown. Not saved to browser storage.",
+  "this update was not recorded; existing history was left unchanged.",
+  "this answer was not recorded.",
+  "recording could not be confirmed."
+];
+// Copy only inert own metadata; accessors/inherited projections are not evidence.
+function resultMetadata(result){
+  if(!result||typeof result!=="object"||Array.isArray(result))return null;
+  try{
+    if(Object.getOwnPropertySymbols(result).length)return null;
+    const out=Object.create(null);
+    Object.getOwnPropertyNames(result).forEach(function(k){
+      const d=Object.getOwnPropertyDescriptor(result,k);
+      if(!Object.prototype.hasOwnProperty.call(d,"value"))throw Error("unsupported");
+      Object.defineProperty(out,k,{value:d.value,enumerable:true});
+    });
+    return out;
+  }catch(e){return null;}
+}
+function recordingClass(result){
+  const r=resultMetadata(result);
+  if(!r)return 6;
+  if(r.error||r.ok===false||r.synced===false)return 6;
+  if(r.outcome==="recorded"&&r.persistence==="durable"&&r.reason==="complete")return 0;
+  if(r.outcome==="partial"&&r.reason==="historical-fields-unknown"){
+    if(r.persistence==="durable")return 1;if(r.persistence==="memory")return 3;
+  }
+  if(r.outcome==="recorded"&&r.persistence==="memory"&&r.reason==="storage-unavailable")return 2;
+  if(r.outcome==="held"&&r.persistence==="none"&&
+    ["historical-state-held","serialization-failed","storage-unavailable","raw-state-unavailable"].includes(r.reason))return 4;
+  if(r.outcome==="no-question"&&r.persistence==="none"&&r.reason==="no-question")return 5;
+  return 6;
+}
+function recordingLines(status){
+  const lines=["Review: "+RECORDING_COPY[status.review]];
+  if(status.library!==null)lines.push("Library recall: "+RECORDING_COPY[status.library]);
+  return lines;
+}
+function recordingHTML(status){
+  return '<div class="recording-status">'+recordingLines(status).map(t=>'<p>'+esc(t)+'</p>').join("")+
+    '<p>'+RECORDING_SCOPE+'</p></div>';
+}
+function announceRecording(text){
+  const live=$("recordingStatusLive");if(live)live.textContent=text;
+}
 function pickAuditQuestion(){
   const bank=QBANK;
   if(!bank.length)return null;
@@ -1703,6 +1847,7 @@ function auditMoment(){
 }
 function cashoutArgs(){const c=G._pendingCashout;return [c.base,c.unused,c.interest,c.earned];}
 function renderAudit(){
+  const continueFocus=AUDIT.locked&&document.activeElement&&document.activeElement.id==="auditSubmit";
   const q=AUDIT.q;const lbl=(MODLABEL[AUDIT.modKey]||AUDIT.modKey||SUBJECT);
   const conf=AUDIT.confidence;
   const choices=q.choices.map((c,i)=>{
@@ -1717,7 +1862,7 @@ function renderAudit(){
   let footer;
   if(AUDIT.locked){
     const correct=AUDIT.selected===q.answer;
-    footer=`<div class="qexpl"><b>${correct?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${q.je?jeHTML(q.je):""}
+    footer=`<div class="qexpl"><b>${correct?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${q.je?jeHTML(q.je):""}${AUDIT.recording?recordingHTML(AUDIT.recording):""}
       <div class="shopbar"><button class="act play" id="auditCont">CONTINUE TO SHOP →</button></div>`;
   }else{
     footer=`<div class="shopbar"><button class="act play" id="auditSubmit"${(AUDIT.selected===null||!conf)?' disabled':''}>SUBMIT ANSWER</button></div>
@@ -1731,12 +1876,15 @@ function renderAudit(){
     document.querySelectorAll("[data-ach]").forEach(el=>el.onclick=()=>{AUDIT.selected=+el.dataset.ach;sfx.sel();renderAudit();});
     document.querySelectorAll("[data-conf]").forEach(el=>el.onclick=()=>{AUDIT.confidence=el.dataset.conf;sfx.tick();renderAudit();});
     const sb=$("auditSubmit");if(sb)sb.onclick=submitAudit;
-  }else{$("auditCont").onclick=()=>{$("modal").classList.remove("qmodal");openCashout(...cashoutArgs());};}
+  }else{
+    $("auditCont").onclick=()=>{$("modal").classList.remove("qmodal");openCashout(...cashoutArgs());};
+    if(continueFocus)$("auditCont").focus();
+  }
 }
 function _qKey(q){ return (q&&(q.id||q.q))?String(q.id||q.q):""; }
-function wasMissedEver(q){ var k=_qKey(q); if(!k)return false; var m=ACED_STORE.get("missedEver",{}); return !!m[k]; }
-function addMissedEver(q){ var k=_qKey(q); if(!k)return; var m=ACED_STORE.get("missedEver",{}); if(!m[k]){ m[k]=1; ACED_STORE.set("missedEver",m); } }
-function clearMissedEver(q){ var k=_qKey(q); if(!k)return; var m=ACED_STORE.get("missedEver",{}); if(m[k]){ delete m[k]; ACED_STORE.set("missedEver",m); } }
+function wasMissedEver(q){ return missedEverAccess.has(_qKey(q)); }
+function addMissedEver(q){ return missedEverAccess.add(_qKey(q)); }
+function clearMissedEver(q){ return missedEverAccess.consume(_qKey(q)); }
 function nemesisRise(n){
   if(!n)return;
   try{ var seen=ACED_STORE.get("nemAnnounced",null); if(seen===n.born)return; ACED_STORE.set("nemAnnounced",n.born); }catch(e){ return; }
@@ -1747,16 +1895,17 @@ function nemesisRise(n){
   try{ sfx.boom(); }catch(e){}
 }
 function submitAudit(){
-  if(AUDIT.selected===null||!AUDIT.confidence)return;
+  if(AUDIT.locked||AUDIT.selected===null||!AUDIT.confidence)return;
   AUDIT.locked=true;
+  AUDIT.recording={review:6,library:window.ACEDLibraryRecord?6:null};
   if(vHas("cpe"))G.money+=3;
   const q=AUDIT.q,mk2=AUDIT.modKey,conf=AUDIT.confidence,m=CONF[conf].mult;
   const correct=AUDIT.selected===q.answer;
   G._lastAuditPassed=correct; // v10: Backed Judgment reads this next close
   try{ if(window.ACEDCore){
     ACEDCore.calibration.record({confidence:conf,correct:correct,source:q.source||mk2});
-    ACEDCore.review.record(q,correct);
-    if(window.ACEDLibraryRecord)window.ACEDLibraryRecord(q,correct);
+    AUDIT.recording.review=recordingClass(ACEDCore.review.record(q,correct));
+    if(window.ACEDLibraryRecord)AUDIT.recording.library=recordingClass(window.ACEDLibraryRecord(q,correct));
     ACEDCore.analytics.track("quiz_answered",{module:q.source||mk2,correct:correct,confidence:conf});
     updateReviewBadge();
   } }catch(e){}
@@ -1768,7 +1917,7 @@ function submitAudit(){
     // v9: Conviction — passing an audit permanently buffs that topic's cards for the rest of the run.
     if(!G.conviction)G.conviction=Object.create(null); var _cv=(conf==="HIGH"?3:2); setOwn(G.conviction,mk2,Math.min(12,(ownValue(G.conviction,mk2,0)||0)+_cv));
     var _ins=(conf==="HIGH"?3:conf==="MED"?2:1)+(vHas("insightplus")?1:0); G.insight=(G.insight||0)+_ins; try{var _iel=$("hInsight");if(_iel){var _ib=_iel.getBoundingClientRect();floatText(_ib.left+_ib.width/2,_ib.top-10,"+"+_ins+" insight","var(--gold)");}}catch(e){}
-    var _pctA=0; try{_pctA=masteryPct(mk2);}catch(_e){} var _redeemed=wasMissedEver(q); if(_redeemed){clearMissedEver(q);G._redeemedCount=(G._redeemedCount||0)+1;} var _mile=[25,50,75,100].filter(function(t){return _pctB<t&&_pctA>=t;}); var _crossed=_mile.length?_mile[_mile.length-1]:0; var _learn=_redeemed||_crossed>0; G._closeClean=true;
+    var _pctA=0; try{_pctA=masteryPct(mk2);}catch(_e){} var _redeemed=clearMissedEver(q); if(_redeemed){G._redeemedCount=(G._redeemedCount||0)+1;} var _mile=[25,50,75,100].filter(function(t){return _pctB<t&&_pctA>=t;}); var _crossed=_mile.length?_mile[_mile.length-1]:0; var _learn=_redeemed||_crossed>0; G._closeClean=true;
     G._shopDelta=(G._shopDelta||0)-1; // shop 1 cheaper
     if(_redeemed){ callout("\u2713 REDEEMED \u00b7 +$"+_pay,"var(--money)"); toast("You missed "+(MODLABEL[mk2]||"this")+" before \u2014 now it\u2019s yours. Conviction +"+_cv+"."); }
     else if(_crossed){ callout((MODLABEL[mk2]||"MODULE").toUpperCase()+" \u2014 "+_crossed+"% MASTERY","var(--gold)"); toast("Strengthening a weak area \u2014 +$"+_pay+", Conviction +"+_cv+" on these cards."); }
@@ -1786,8 +1935,8 @@ function submitAudit(){
     try{ if(window.ACEDFX)ACEDFX.combo.miss(); }catch(e){} // resets the streak; shows "STREAK BROKEN" only if it was >=3
     if(!G.missedThisRun)G.missedThisRun=[]; if(!G.missedThisRun.some(x=>x.q&&x.q.q===q.q))G.missedThisRun.push({q:q,mk:mk2});
     addMissedEver(q); G._closeClean=false;
-    if(conf==="HIGH"){ G._shopDelta=(G._shopDelta||0)+1; G.masterDeck.push(mk(WEAKNESS_CARD)); callout("OVERCONFIDENT \u2014 WEAKNESS CARD","var(--red)"); toast("You bet HIGH and missed \u2014 one Weakness Card joins the deck. Queued in Review."); }
-    else { callout("NO BONUS \u2014 QUEUED IN REVIEW","var(--grey)"); toast("Missed, but you played it safe \u2014 no penalty. Queued in Review for later."); }
+    if(conf==="HIGH"){ G._shopDelta=(G._shopDelta||0)+1; G.masterDeck.push(mk(WEAKNESS_CARD)); callout("OVERCONFIDENT \u2014 WEAKNESS CARD","var(--red)"); toast("You bet HIGH and missed \u2014 one Weakness Card joins the deck."); }
+    else { callout("NO BONUS \u2014 NO PENALTY","var(--grey)"); toast("Missed, but you played it safe \u2014 no penalty."); }
   }
   // Nemesis outcome (its callout outranks the audit one)
   if(nemRes){
@@ -1802,6 +1951,7 @@ function submitAudit(){
   }
   try{ if(window.ACEDProgress) _progress(ACEDProgress.event("quiz_answered",{correct:correct,confidence:conf,module:q.source||mk2})); }catch(e){}
   renderAudit();renderMastery();renderReadiness();
+  announceRecording(recordingLines(AUDIT.recording).join(" "));
   try{ if(window.ACEDCore&&ACEDCore.sync) ACEDCore.sync.push(); }catch(e){} // cross-device sync (no-op until backend configured)
 }
 function openCashout(base,unused,interest,earned){
@@ -2662,12 +2812,14 @@ function sanitizeModalFragment(h){
     USE_PROFILES:{html:true,svg:true}
   });
 }
+let accountView=null,manualOperation=null,manualResult=null,manualSigningOut=false;
 function showModal(h){
+  accountView=null;
   var m=$("modal");
   m.replaceChildren(sanitizeModalFragment(h));
   $("overlay").classList.add("show");
 }
-function hideModal(){$("overlay").classList.remove("show");$("modal").classList.remove("qmodal");}
+function hideModal(){accountView=null;$("overlay").classList.remove("show");$("modal").classList.remove("qmodal");}
 // ===== v19: first-run onboarding — teach the loop in plain language, once. =====
 function showIntro(){
   showModal('<div class="imodal"><h2>\uD83C\uDCCF HOW TO PLAY <span style="color:var(--grey,#7fae90);font-weight:400;font-size:12px">\u00b7 30 seconds</span></h2>'
@@ -2732,31 +2884,176 @@ $("mute").onclick=()=>{if(window.ACEDFX){const next=!ACEDFX.isMuted();ACEDFX.set
 // --- v9: accounts + cloud sync UI. The button is hidden unless window.ACED_API_URL is set,
 //     so an undeployed build shows nothing. ACEDAccount (aced-account.js) does the real work. ---
 function acctShort(e){ if(!e)return ""; var n=String(e).split("@")[0]; return n.length>11?n.slice(0,10)+"\u2026":n; }
+const MANUAL_COPY={
+  pending:"Sign-in confirmation is pending. No new manual sync request was started.",
+  refused:"Sign-in could not be completed here. No new manual sync request was started.",
+  held:"Manual sync is held by the account guard. No new manual sync request was started.",
+  unconfirmed:"Manual sync availability could not be confirmed. No new request was started.",
+  unavailable:"Manual sync is unavailable in this build or session. No new request was started.",
+  eligible:"Manual sync can be attempted. No manual sync result for this page session.",
+  busy:"Waiting for an existing manual request to finish. No additional request was started."
+};
+function manualEligibility(){
+  const a=window.ACEDAccount,c=window.ACEDCore;
+  try{
+    if(!a||typeof a.isSignedIn!=="function")return "unconfirmed";
+    const signed=a.isSignedIn();
+    if(signed===false){manualSigningOut=false;return "signedout";}
+    if(signed!==true)return "unconfirmed";
+    if(typeof a.signInPending!=="function")return "unconfirmed";
+    const pending=a.signInPending();if(pending===true)return "pending";if(pending!==false)return "unconfirmed";
+    if(typeof a.signInNotice!=="function")return "unconfirmed";
+    const notice=a.signInNotice();if(typeof notice==="string"&&notice)return "refused";if(notice!==null)return "unconfirmed";
+    if(typeof a.syncHeld!=="function")return "unconfirmed";
+    const held=a.syncHeld();if(held===true)return "held";if(held!==false)return "unconfirmed";
+    if(manualSigningOut||typeof a.token!=="function")return "unconfirmed";
+    const token=a.token();if(typeof token!=="string"||!token)return "unconfirmed";
+    if(typeof window.ACED_API_URL!=="string"||!window.ACED_API_URL.trim())return "unavailable";
+    if(!c||!c.sync||typeof c.sync.isEnabled!=="function"||typeof c.sync.push!=="function"||typeof c.sync.pull!=="function")return "unconfirmed";
+    const enabled=c.sync.isEnabled();if(enabled===false)return "unavailable";if(enabled!==true)return "unconfirmed";
+    return "eligible";
+  }catch(e){return "unconfirmed";}
+}
+function syncMetadata(result,unknownReason){
+  const r=resultMetadata(result);if(!r)return null;
+  for(const k of ["ok","synced","applied"])if(Object.prototype.hasOwnProperty.call(r,k)&&typeof r[k]!=="boolean")return null;
+  if(!unknownReason&&Object.prototype.hasOwnProperty.call(r,"reason")&&typeof r.reason!=="string")return null;
+  if(typeof r.error==="function"||typeof r.error==="symbol"||typeof r.error==="bigint")return null;
+  return r;
+}
+function uploadCopy(result){
+  const r=syncMetadata(result),unknown="Upload: acknowledgment could not be confirmed.";
+  if(!r)return unknown;
+  const reason=Object.prototype.hasOwnProperty.call(r,"reason"),failure=!!r.error||r.ok===false||r.synced===false;
+  if((r.ok===true||r.synced===true)&&(failure||reason))return unknown;
+  if(r.reason==="no-endpoint")return "Upload: not attempted because sync is unavailable.";
+  if(failure)return "Upload: not confirmed by the server.";
+  return r.ok===true&&!reason?"Upload: server acknowledged this sync request.":unknown;
+}
+function downloadCopy(result){
+  const r=syncMetadata(result,true),unknown="Download: application could not be confirmed.";
+  if(!r)return unknown;
+  if(r.applied===true){
+    if(Object.prototype.hasOwnProperty.call(r,"reason")||r.error||r.ok===false||r.synced===false)return unknown;
+    return "Download: server response applied on this page. Durable saving of all progress was not verified.";
+  }
+  if(r.applied!==false||r.ok===true||r.synced===true)return unknown;
+  const reasons={
+    "no-endpoint":"not attempted because sync is unavailable.",
+    stale:"no newer response was applied.",empty:"no usable response was applied.",
+    "pack-mismatch":"response was not applied because its pack did not match.",
+    "review-state-held":"response was held to preserve local Review history.",
+    "review-serialization-failed":"response was held because Review data could not be safely written.",
+    "review-storage-unavailable":"response was held because Review storage was unavailable."
+  };
+  return "Download: "+(typeof r.reason==="string"&&Object.prototype.hasOwnProperty.call(reasons,r.reason)?reasons[r.reason]:"no application was confirmed.");
+}
+function observeManualDeparture(){
+  if(manualResult&&!manualResult.matches())manualResult=null;
+  if(manualOperation&&!manualOperation.matches())manualOperation.invalidate();
+}
+function refreshManualView(announce){
+  observeManualDeparture();
+  const view=accountView;
+  if(!view||!$("overlay").classList.contains("show"))return;
+  const eligible=manualEligibility(),matching=view.matches();
+  const pending=manualOperation;
+  const result=matching&&(pending?pending.matches()?pending:null:manualResult);
+  const header=pending?MANUAL_COPY.busy:result?"Last manual attempt on this page:":MANUAL_COPY[eligible]||MANUAL_COPY.unconfirmed;
+  view.status.textContent=header;
+  view.upload.textContent=result&&result.upload||"";
+  view.download.textContent=result&&result.download||"";
+  view.upload.hidden=!view.upload.textContent;view.download.hidden=!view.download.textContent;
+  view.button.disabled=!!pending||!matching||eligible!=="eligible";
+  if(announce&&matching)announceRecording([header,view.upload.textContent,view.download.textContent].filter(Boolean).join(" "));
+}
+function invalidateManualSignout(){
+  manualSigningOut=true;manualResult=null;
+  if(manualOperation)manualOperation.invalidate();
+  refreshManualView(false);
+}
+function startManualSync(view){
+  observeManualDeparture();
+  if(accountView!==view||!view.matches()||manualOperation||manualEligibility()!=="eligible"){refreshManualView(false);return;}
+  // The opaque token stays inside this private closure, never DOM/storage/logs.
+  const account=window.ACEDAccount,core=window.ACEDCore,sync=core.sync,pack=PACK,packId=PACK.id;
+  let token;try{token=account.token();}catch(e){refreshManualView(false);return;}
+  if(typeof token!=="string"||!token){refreshManualView(false);return;}
+  let departed=false;
+  const op={
+    upload:"",download:"",
+    invalidate(){departed=true;},
+    matches(){
+      try{return !departed&&window.ACEDAccount===account&&window.ACEDCore===core&&core.sync===sync&&
+        window.ACED_PACK===pack&&PACK.id===packId&&manualEligibility()==="eligible"&&account.token()===token;
+      }catch(e){return false;}
+    }
+  };
+  manualResult=null;manualOperation=op;refreshManualView(true);
+  function settle(){
+    const valid=manualOperation===op&&op.matches();
+    if(valid)manualResult={matches:op.matches,upload:op.upload,download:op.download};
+    if(manualOperation===op)manualOperation=null;
+    refreshManualView(valid);
+  }
+  function pushFailed(){
+    op.upload="Upload: request did not complete; acknowledgment could not be confirmed.";
+    op.download="Download: not attempted.";settle();
+  }
+  function pullFailed(){
+    op.download="Download: request did not complete; application could not be confirmed.";settle();
+  }
+  let pushed;
+  try{pushed=sync.push();}catch(e){pushFailed();return;}
+  Promise.resolve(pushed).then(function(result){
+    if(manualOperation!==op||!op.matches()){settle();return;}
+    op.upload=uploadCopy(result);refreshManualView(true);
+    if(manualOperation!==op||!op.matches()){settle();return;}
+    let pulled;try{pulled=sync.pull();}catch(e){pullFailed();return;}
+    return Promise.resolve(pulled).then(function(value){op.download=downloadCopy(value);settle();},pullFailed);
+  },pushFailed);
+}
 function renderAcctBtn(){
+  observeManualDeparture();
   var b=$("acctBtn"); if(!b)return;
   if(!window.ACED_API_URL||!window.ACEDAccount){ b.style.display="none"; return; }
   b.style.display="";
-  if(ACEDAccount.isSignedIn()){ var em=ACEDAccount.email(); b.textContent="\u2713 "+(acctShort(em)||"SYNCED"); b.title=em?("Synced as "+em+" \u2014 tap for account"):"Signed in \u00b7 progress syncs across your devices"; }
-  else { b.textContent="SIGN IN"; b.title="Sign in to save progress and sync across your devices"; }
+  let signed=false;try{signed=ACEDAccount.isSignedIn()===true;}catch(e){}
+  if(signed){ var em=ACEDAccount.email(); b.textContent="ACCOUNT"+(acctShort(em)?" "+acctShort(em):""); b.title="Signed in. Open account and sync status."; }
+  else { b.textContent="SIGN IN"; b.title="Sign in to an account."; }
 }
 function openAcctModal(){
   if(!window.ACEDAccount)return;
-  if(ACEDAccount.isSignedIn()){
-    var em=ACEDAccount.email()||"this device";
+  observeManualDeparture();
+  const eligibility=manualEligibility();
+  if(eligibility!=="signedout"){
+    let signed=false,em="";try{signed=ACEDAccount.isSignedIn()===true;em=ACEDAccount.email()||"this device";}catch(e){}
     showModal('<h2>ACCOUNT</h2>'+
-      '<p class="help">Signed in as <b>'+esc(em)+'</b>. Your readiness, calibration, streak and missed-question queue sync across devices automatically.</p>'+
+      (signed?'<p class="help">Signed in as <b>'+esc(em)+'</b>. Sign-in does not confirm that progress was saved or synchronized.</p>':"")+
+      '<div class="recording-status"><p id="acctStatus"></p><p id="acctUpload" hidden></p><p id="acctDownload" hidden></p></div>'+
       '<div class="help" style="border-top:1px solid var(--green-dim);margin-top:10px;padding-top:10px"><b style="color:var(--gold)">PUBLIC LEADERBOARD</b><br>Pick a handle to appear on the public board, or stay hidden. Change or remove it anytime.</div>'+
       '<input id="lbHandle" type="text" maxlength="24" autocomplete="off" placeholder="handle (2-24 chars)" style="width:100%;box-sizing:border-box;font-family:VT323;font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin:8px 0">'+
       '<div class="shopbar" style="gap:8px;flex-wrap:wrap"><button class="act play" id="lbOptin">SHOW ME ON THE BOARD</button><button class="act" id="lbOptout">HIDE ME</button></div>'+
-      '<div class="shopbar" style="gap:8px;flex-wrap:wrap;margin-top:8px"><button class="act play" id="acctSync">SYNC NOW</button><button class="act" id="acctOut">SIGN OUT</button><button class="act" id="acctAllOut">SIGN OUT EVERYWHERE</button><button class="act" id="acctClose">CLOSE</button></div>');
+      '<div class="shopbar account-actions" style="gap:8px;flex-wrap:wrap;margin-top:8px"><button class="act play" id="acctSync" disabled>SYNC NOW</button><button class="act" id="acctOut">SIGN OUT</button><button class="act" id="acctAllOut">SIGN OUT EVERYWHERE</button><button class="act" id="acctClose">CLOSE</button></div>');
+    const account=window.ACEDAccount,pack=PACK;
+    let shownToken;try{shownToken=account.token();}catch(e){}
+    const view={status:$("acctStatus"),upload:$("acctUpload"),download:$("acctDownload"),button:$("acctSync"),
+      matches(){try{return window.ACEDAccount===account&&window.ACED_PACK===pack&&
+        typeof shownToken==="string"&&shownToken!==""&&account.token()===shownToken;}catch(e){return false;}}};
+    accountView=view;refreshManualView(false);
     $("acctClose").onclick=hideModal;
-    $("acctOut").onclick=function(){ ACEDAccount.signOut(); renderAcctBtn(); hideModal(); toast("Signed out - play continues on this device."); };
-    $("acctSync").onclick=function(){ toast("Syncing..."); try{ ACEDCore.sync.push().then(function(){return ACEDCore.sync.pull();}).then(function(){ toast("Progress synced."); }).catch(function(){ toast("Sync unavailable right now."); }); }catch(e){ toast("Sync unavailable right now."); } };
+    $("acctOut").onclick=function(){
+      invalidateManualSignout();
+      let signedOut;try{signedOut=ACEDAccount.signOut();}catch(e){manualSigningOut=false;refreshManualView(false);return;}
+      renderAcctBtn();hideModal();toast("Signed out - play continues on this device.");
+      Promise.resolve(signedOut).then(function(){manualSigningOut=false;refreshManualView(false);},function(){manualSigningOut=false;refreshManualView(false);});
+    };
+    $("acctSync").onclick=function(){startManualSync(view);};
     $("lbOptin").onclick=function(){ var h=($("lbHandle").value||"").trim(); if(h.length<2){ toast("Pick a handle of at least 2 characters."); return; } var b=$("lbOptin"); if(b)b.disabled=true; ACEDAccount.leaderboardOptIn(h).then(function(r){ if(b)b.disabled=false; if(r&&r.handle){ toast("You're on the board as "+r.handle+"."); } else { toast((r&&r.error)||"Could not update the board."); } }).catch(function(){ if(b)b.disabled=false; toast("Leaderboard unavailable right now."); }); };
     $("lbOptout").onclick=function(){ var b=$("lbOptout"); if(b)b.disabled=true; ACEDAccount.leaderboardOptOut().then(function(){ if(b)b.disabled=false; toast("Hidden from the public board."); }).catch(function(){ if(b)b.disabled=false; toast("Leaderboard unavailable right now."); }); };
-    $("acctAllOut").onclick=function(){ toast("Signing out all devices..."); ACEDAccount.signOutEverywhere().then(function(){ renderAcctBtn(); hideModal(); toast("Signed out on all devices."); }).catch(function(){ renderAcctBtn(); hideModal(); toast("Signed out on this device."); }); };
+    $("acctAllOut").onclick=function(){ invalidateManualSignout();toast("Signing out all devices..."); ACEDAccount.signOutEverywhere().then(function(){ manualSigningOut=false;renderAcctBtn(); hideModal(); toast("Signed out on all devices."); }).catch(function(){ manualSigningOut=false;renderAcctBtn(); hideModal(); toast("Signed out on this device."); }); };
   } else {
-    showModal('<h2>SIGN IN</h2><p class="help">Enter your email and we\'ll send a one-tap sign-in link \u2014 no password. Signing in saves your progress and syncs phone \u2194 laptop.</p><input id="acctEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="width:100%;box-sizing:border-box;font-family:\'VT323\';font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin-bottom:10px"><div class="shopbar"><button class="act play" id="acctSend">SEND LINK</button><button class="act" id="acctCancel">CANCEL</button></div>');
+    showModal('<h2>SIGN IN</h2><p class="help">Sign in to an account. Progress sync depends on availability. Enter your email and we\'ll send a one-tap sign-in link \u2014 no password.</p><input id="acctEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="width:100%;box-sizing:border-box;font-family:\'VT323\';font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin-bottom:10px"><div class="shopbar"><button class="act play" id="acctSend">SEND LINK</button><button class="act" id="acctCancel">CANCEL</button></div>');
     $("acctCancel").onclick=hideModal;
     var send=function(){ var v=($("acctEmail").value||"").trim(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ toast("Enter a valid email address."); return; } var s=$("acctSend"); if(s)s.disabled=true; ACEDAccount.signIn(v).then(function(){ hideModal(); toast("Check your email for your sign-in link."); }).catch(function(err){ if(s)s.disabled=false; toast((err&&err.message)||"Could not send the link."); }); };
     $("acctSend").onclick=send;
@@ -2975,39 +3272,54 @@ const ACEDPay=(function(){
 function runQuiz(opts){
   const qs=(opts&&opts.questions)||[]; if(!qs.length){toast("Nothing to quiz right now.");return;}
   let idx=0, correct=0, sel=null, locked=false;
+  const totals=[0,0,0,0,0,0],missedTotals=[0,0,0,0,0,0];
+  const bucket=[0,1,2,3,4,4,5];
+  const labels=["recorded in this browser","progress updates accepted in this browser with historical fields unknown",
+    "recorded for this page session only","progress updates accepted for this page session with historical fields unknown","not recorded","unconfirmed"];
+  function breakdown(counts){return '<ul>'+counts.map((n,i)=>n?'<li>'+n+' '+labels[i]+'</li>':"").join("")+'</ul>';}
   function paintQ(){
     const q=qs[idx]; sel=null; locked=false;
     const choices=q.choices.map((c,i)=>`<div class="qch" data-qc="${i}" role="button" tabindex="0" aria-label="Answer ${"ABCD"[i]}: ${esc(c)}"><span class="ql">${"ABCD"[i]}</span><span>${esc(c)}</span></div>`).join("");
     showModal(`<div class="qmodal" style="border:0;padding:0"><h2>${esc(opts.title)} — ${idx+1}/${qs.length}</h2>
       <div style="text-align:center;color:var(--grey);font-family:'VT323';font-size:14px;margin-bottom:6px">${esc(MODLABEL[q.source]||q.source||SUBJECT)}</div>
       <div class="qtext">${esc(q.q)}</div><div class="qchoices">${choices}</div>
-      <div class="shopbar" id="qfoot"><button class="act play" id="qSubmit" disabled>SUBMIT</button></div></div>`);
+      <div class="shopbar recording-foot" id="qfoot"><button class="act play" id="qSubmit" disabled>SUBMIT</button></div></div>`);
     $("modal").classList.add("qmodal");
     document.querySelectorAll("[data-qc]").forEach(el=>el.onclick=()=>{ if(locked)return; sel=+el.dataset.qc; sfx.sel(); document.querySelectorAll("[data-qc]").forEach(x=>x.classList.remove("sel")); el.classList.add("sel"); const sb=$("qSubmit"); if(sb)sb.disabled=false; });
     $("qSubmit").onclick=lockQ;
   }
   function lockQ(){
     if(sel===null||locked)return; locked=true;
+    const continueFocus=document.activeElement&&document.activeElement.id==="qSubmit";
     const q=qs[idx]; const ok=sel===q.answer; if(ok)correct++;
+    let recorded=6;
     try{ if(window.ACEDProgress) _progress(ACEDProgress.event("question_answered",{correct:ok,module:q.source||null})); }catch(e){}
-    try{ if(window.ACEDCore){ ACEDCore.review.record(q,ok); ACEDCore.analytics.track((opts.kind||"quiz")+"_item",{module:q.source||null,correct:ok}); } }catch(e){}
+    try{ if(window.ACEDCore){ recorded=recordingClass(ACEDCore.review.record(q,ok)); ACEDCore.analytics.track((opts.kind||"quiz")+"_item",{module:q.source||null,correct:ok}); } }catch(e){}
+    totals[bucket[recorded]]++;if(!ok)missedTotals[bucket[recorded]]++;
     try{ if(window.ACEDNemesis) ACEDNemesis.onAudit(q.source||null,ok); }catch(e){}
     if(ok)sfx.coin(); else sfx.lose();
     document.querySelectorAll("[data-qc]").forEach(el=>{const i=+el.dataset.qc; el.classList.remove("sel"); el.classList.add("locked"); if(i===q.answer)el.classList.add("correct"); else if(i===sel)el.classList.add("wrong"); el.onclick=null;});
     const last=idx===qs.length-1;
-    const foot=$("qfoot"); if(foot)foot.innerHTML=`<div class="qexpl"><b>${ok?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div><button class="act play" id="qNext">${last?'SEE RESULTS \u2192':'NEXT \u2192'}</button>`;
+    const foot=$("qfoot"); if(foot)foot.innerHTML=`<div class="qexpl"><b>${ok?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${recordingHTML({review:recorded,library:null})}<button class="act play" id="qNext">${last?'SEE RESULTS \u2192':'NEXT \u2192'}</button>`;
     const nx=$("qNext"); if(nx)nx.onclick=()=>{ if(last)finish(); else {idx++;paintQ();} };
+    if(continueFocus&&nx)nx.focus();
+    announceRecording("Review: "+RECORDING_COPY[recorded]);
   }
   function finish(){
+    const doneFocus=document.activeElement&&document.activeElement.id==="qNext";
     const pct=Math.round(correct/qs.length*100);
     try{ if(window.ACEDProgress && (opts.kind==="review"||opts.kind==="mock")) _progress(ACEDProgress.event(opts.kind+"_done",{pct:pct,correct:correct,n:qs.length})); }catch(e){}
     try{ if(window.ACEDCore) ACEDCore.analytics.track((opts.kind||"quiz")+"_completed",{score:pct,n:qs.length,correct:correct}); }catch(e){}
     updateReviewBadge();
     showModal(`<div class="qmodal" style="border:0;padding:0"><h2>${esc(opts.title)} — RESULT</h2>
       <div style="text-align:center;font-family:'Press Start 2P';font-size:20px;color:${pct>=75?'var(--money)':pct>=50?'var(--amber)':'var(--red)'};margin:14px 0">${correct}/${qs.length} \u00b7 ${pct}%</div>
-      <p class="help" style="text-align:center">${pct>=75?'Strong. Real '+esc(SUBJECT)+' MCQ testlets pass around this level.':'Keep going \u2014 missed items are now queued in REVIEW.'}</p>
+      <p class="help" style="text-align:center">${pct>=75?'Strong. Real '+esc(SUBJECT)+' MCQ testlets pass around this level.':'Keep going. Review recording details are below.'}</p>
+      <div class="recording-status"><p>Review updates for ${qs.length} submitted answers:</p>${breakdown(totals)}
+        ${qs.length>correct?'<p>Of '+(qs.length-correct)+' missed answers:</p>'+breakdown(missedTotals):""}<p>${RECORDING_SCOPE}</p></div>
       <div class="shopbar"><button class="act play" id="qDone">DONE</button></div></div>`);
     $("qDone").onclick=()=>{ hideModal(); try{renderReadiness();}catch(e){} if(G&&!G.busy)render(); };
+    if(doneFocus)$("qDone").focus();
+    announceRecording("Review updates for "+qs.length+" submitted answers. "+totals.map((n,i)=>n?n+" "+labels[i]+".":"").filter(Boolean).join(" "));
   }
   paintQ();
 }
