@@ -433,6 +433,20 @@ async function run(options={}) {
     assert.equal(f.navigations.length,0);
     // The rule and real handler semantics are checked here; native hit testing is separate.
   });
+  await test("classic: owned editable controls have 44px minimum and contrasting source boundaries",()=>{
+    const html=read("importer-classic.html");
+    function block(selector){const p=html.split("\n  "+selector+"{");assert.equal(p.length,2);return p[1].split("}")[0];}
+    const owned=block(".flow input,.flow textarea");assert.ok(owned.includes("min-height:44px"));
+    const border=owned.match(/(?:^|;)border-color:(#[0-9a-f]{6})(?:;|$)/i)?.[1];assert.ok(border);
+    assert.ok(block(".flow .qstem,.flow .qopt").includes("border-color:"+border));
+    const backgrounds=["input,textarea",".qstem",".opt .qopt",".qc"].map(selector=>{const m=block(selector).match(/(?:^|;)background:(#[0-9a-f]{6})(?:;|$)/i);assert.ok(m);return m[1];});
+    assert.ok(block(".flow").includes("background:var(--panel)"));const panel=html.match(/--panel:(#[0-9a-f]{6});/i)?.[1];assert.ok(panel);backgrounds.push(panel);
+    function luminance(hex){const v=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*v[0]+.7152*v[1]+.0722*v[2];}
+    function contrast(a,b){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+    const focus=block(".flow button:focus-visible,.flow input:focus-visible,.flow textarea:focus-visible").match(/outline:2px solid (#[0-9a-f]{6})/i)?.[1];assert.ok(focus);
+    for(const bg of backgrounds){assert.ok(contrast(border,bg)>=3);assert.ok(contrast(focus,bg)>=3);}
+    // Palette arithmetic on known owned source is not a computed-style/native measurement.
+  });
   await test("classic: malformed PDF item/width/rotation rejects actual extraction without partial Build",async()=>{
     for(const bad of [{...item("first",50),width:NaN},{...item("first",50),width:-1},{...item("first",50),transform:[1,0,0.01,1,50,700]},{...item("first",50),str:17},null]){
       const f=classic(read);f.pdf([[item("alpha:"),bad]]);await f.change(inputFile("fixture.pdf",""));await tick();assert.equal(f.ensure("uBuild").disabled,true);assert.equal(f.api.draft.length,0);assert.match(f.ensure("uStatus").textContent,/could not be read/);
