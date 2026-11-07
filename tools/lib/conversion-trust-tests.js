@@ -148,7 +148,7 @@ function fixture(options = {}) {
   context.window = context; vm.createContext(context);
   const evaluate = (code, name) => vm.runInContext(code, context, { filename: name, timeout: 1000 });
   function loadPage(html) {
-    for (const s of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    for (const s of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\b[^>]*>/gi)) {
       if (/application\/ld\+json/.test(s[1])) continue;
       if (/\bsrc="notify\.js"/.test(s[1])) evaluate(read("notify.js"), "notify.js");
       else if (!/\bsrc=/.test(s[1]) && s[2].includes("// live streak")) evaluate(s[2], "index.html:actual-inline");
