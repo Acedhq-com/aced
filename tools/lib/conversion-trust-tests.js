@@ -525,7 +525,7 @@ module.exports = async function () {
     assert.equal(/\/\/ email capture|store\.get\("subscribers"/.test(html), false);
   });
   await test("T07 exact pricing privacy copy and byte-preserved unrelated content", async () => {
-    const html = read("pricing.html"), plain = html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ");
+    const html = read("pricing.html"), plain = html.replace(/[<>]/g, "").replace(/\s+/g, " ");
     assert.ok(plain.includes("Supported notes are processed in your browser. Optional account sync can send progress and associated IDs, labels and history to ACED's backend. See Data handling."));
     assert.ok(plain.includes("No account is required to play. Packs and progress use browser storage when available. Optional sync can send progress and associated text-bearing fields to ACED's backend; it is not limited to XP or streaks. See Data handling for legacy records and deletion limits."));
     assert.equal([...html.matchAll(/href="index\.html#trust">Data handling<\/a>/g)].length, 2);
