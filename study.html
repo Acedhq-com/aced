@@ -1038,6 +1038,36 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     return;
   }
 
+  let publicComplete=false, publicSettled=false, removePublicReady=null;
+  function releasePublicReady(){
+    const remove=removePublicReady; removePublicReady=null;
+    if(remove)try{ Reflect.apply(remove,document,['DOMContentLoaded',deliverPublicReady]); }catch(e){}
+  }
+  function deliverPublicReady(){
+    if(publicSettled||!publicComplete)return;
+    let state;
+    try{ state=document.readyState; }catch(e){ publicSettled=true;releasePublicReady();return; }
+    if(state==='loading'){
+      if(removePublicReady)return;
+      try{
+        const add=document.addEventListener, remove=document.removeEventListener;
+        if(typeof add==='function'&&typeof remove==='function'){
+          removePublicReady=remove;
+          Reflect.apply(add,document,['DOMContentLoaded',deliverPublicReady]);
+          return;
+        }
+      }catch(e){}
+      publicSettled=true;releasePublicReady();return;
+    }
+    publicSettled=true;releasePublicReady();
+    if(state!=='interactive'&&state!=='complete')return;
+    let callback;
+    try{
+      const d=Object.getOwnPropertyDescriptor(window,'_packReady');
+      if(d&&Object.prototype.hasOwnProperty.call(d,'value')&&typeof d.value==='function')callback=d.value;
+    }catch(e){return;}
+    if(callback)Reflect.apply(callback,window,[]);
+  }
   const packScript = document.createElement('script');
   packScript.src = 'packs/' + packId + '.js';
   packScript.onerror = () => {
@@ -1050,7 +1080,7 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     const banks = [].concat(P.scripts || [], P.questionBanks || []);
     let i = 0;
     function next() {
-      if (i >= banks.length) { window._packReady && window._packReady(); return; }
+      if (i >= banks.length) { publicComplete=true;deliverPublicReady(); return; }
       const s = document.createElement('script');
       s.src = banks[i++];
       s.onload = next;

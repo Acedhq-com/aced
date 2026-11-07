@@ -54,9 +54,92 @@ function daily(options={}){
   return {...f,...captures,scripts,events,rewards,banks,shell};
 }
 const rec={score:500,correct:3,total:7,glyphs:["g","y","r","k","g","y","k"],calib:60,perfect:false,close:676,timeSec:1};
+function publicFixture(read,state="loading"){
+  const f=createRuntime({read,id:"public-fixture",publicLoader:{readyState:state}});
+  f.evaluate("window.__readyCalls=[];window.__readyHooks=0","fixture:public-counts");
+  f.callback=()=>f.evaluate('Object.defineProperty(window,"_packReady",{configurable:true,writable:true,value:function(){__readyCalls.push(this===window);}})',"fixture:public-callback");
+  f.calls=()=>Array.from(f.context.__readyCalls);
+  f.pack=pack=>f.evaluate("window.ACED_PACK="+JSON.stringify({id:"public-fixture",...pack}),"fixture:public-pack");
+  return f;
+}
 async function run(options={}){
   const read=options.read||disk,results=[];
   async function test(name,fn){try{await fn();results.push({name,ok:true});}catch(e){results.push({name,ok:false,kind:e.name,frame:String(e.stack).split("\n").find(s=>s.includes("product-success-s2-tests.js:"))||""});}}
+  await test("boot: actual public pack completed before engine definition survives the document boundary",()=>{
+    const f=createRuntime({read,id:"world-capitals",publicLoader:{readyState:"loading"}});
+    f.startLoader();assert.equal(f.appended.length,1);assert.equal(f.appended[0].src,"packs/world-capitals.js");
+    assert.equal(Object.hasOwn(f.context,"_packReady"),false);
+    f.evaluate(read("packs/world-capitals.js"),"packs/world-capitals.js");f.appended[0].onload();
+    assert.equal(f.context.ACED_QUESTIONS.length,30);assert.equal(f.api,undefined);assert.equal(f.timers.length,0);
+    f.defineEngine();assert.equal(f.api,undefined);assert.deepEqual(f.deliveries,[]);
+    f.fireDocument("DOMContentLoaded","interactive");
+    assert.deepEqual(f.deliveries,[true],"early actual-source completion must invoke the existing engine exactly once");
+    assert.equal(f.context._ACED_BOOTED,true);assert.ok(f.modal().includes('id="begin"'));
+    f.document.getElementById("begin").onclick();assert.equal(f.api.G.hand.length,8);assert.equal(f.api.qbank.length,30);
+    f.fireDocument("DOMContentLoaded","complete");assert.deepEqual(f.deliveries,[true]);
+    assert.deepEqual(f.appended.filter(n=>n.src).map(n=>n.src),["packs/world-capitals.js"]);assert.equal(f.requests.length,0);
+  });
+  await test("boot: actual public ordering and document/callback timing matrix has one terminal delivery",()=>{
+    const packs=[{}, {questionBanks:["synthetic-bank.js"]},
+      {scripts:["synthetic-script-a.js","synthetic-script-b.js"],questionBanks:["synthetic-bank-a.js","synthetic-bank-b.js"]},
+      {questionBank:"synthetic-legacy.js",scripts:["synthetic-script.js"],questionBanks:["synthetic-bank.js"]}];
+    for(const timing of ["early-missing","early-present","ready-first","late-interactive","late-complete"])for(const pack of packs){
+      const f=publicFixture(read,timing==="late-complete"?"complete":timing==="late-interactive"?"interactive":"loading");
+      if(timing!=="early-missing")f.callback();
+      f.startLoader();f.pack(pack);const first=f.appended[0],banks=[...(pack.questionBank?[pack.questionBank]:[]),...(pack.scripts||[]),...(pack.questionBanks||[])];
+      if(timing==="ready-first")f.fireDocument("DOMContentLoaded","interactive");
+      assert.deepEqual(f.calls(),[]);first.onload();let terminal=first;
+      for(let i=0;i<banks.length;i++){assert.deepEqual(f.calls(),[]);const script=f.appended[i+1];assert.equal(script.src,banks[i]);terminal=script;(i%2?script.onerror:script.onload)();}
+      assert.deepEqual(f.appended.map(s=>s.src),["packs/public-fixture.js",...banks]);
+      if(timing.startsWith("early")){
+        assert.deepEqual(f.calls(),[]);assert.equal(f.listeners.get("DOMContentLoaded").size,1);
+        f.fireDocument("DOMContentLoaded","loading");assert.deepEqual(f.calls(),[]);
+        if(timing==="early-missing")f.callback();
+        f.fireDocument("DOMContentLoaded","interactive");
+      }
+      assert.deepEqual(f.calls(),[true]);terminal.onload();if(banks.length)terminal.onerror();f.fireDocument("DOMContentLoaded","complete");f.fireDocument("DOMContentLoaded","complete");
+      assert.deepEqual(f.calls(),[true]);assert.equal(f.listeners.get("DOMContentLoaded")?.size||0,0);
+      assert.ok(f.listenerAdds.filter(t=>t==="DOMContentLoaded").length<=1);assert.equal(f.requests.length,0);assert.equal(f.timers.length,0);
+      assert.deepEqual(f.appended.map(s=>s.src),["packs/public-fixture.js",...banks]);
+    }
+  });
+  await test("boot: unsupported boundary/listener/callback holds without getters, replay or requests",()=>{
+    const cases=["missing","nonfunction","accessor","inherited","inspection-throws","unknown","missing-state","state-throws","missing-add","missing-remove","add-throws","add-registers-then-throws"];
+    for(const mode of cases){
+      const early=mode.includes("add")||mode==="missing-remove",f=publicFixture(read,early?"loading":"complete");f.callback();
+      if(mode==="missing")f.evaluate("delete window._packReady;");
+      if(mode==="nonfunction")f.evaluate("window._packReady=7;");
+      if(mode==="accessor")f.evaluate('Object.defineProperty(window,"_packReady",{configurable:true,get(){__readyHooks++;return function(){__readyCalls.push(false);};}})');
+      if(mode==="inherited")f.evaluate('delete window._packReady;Object.setPrototypeOf(window,Object.assign(Object.create(Object.getPrototypeOf(window)),{_packReady:function(){__readyCalls.push(false);}}));');
+      if(mode==="inherited")assert.equal(f.evaluate('typeof window._packReady==="function"&&Object.getOwnPropertyDescriptor(window,"_packReady")===undefined'),true);
+      if(mode==="inspection-throws")f.evaluate('Object.getOwnPropertyDescriptor=function(){throw Error("synthetic inspection");}');
+      if(mode==="unknown")f.document.readyState="unknown";
+      if(mode==="missing-state")delete f.document.readyState;
+      if(mode==="state-throws")Object.defineProperty(f.document,"readyState",{configurable:true,get(){throw Error("synthetic state");}});
+      if(mode==="missing-add")f.document.addEventListener=undefined;
+      if(mode==="missing-remove")f.document.removeEventListener=undefined;
+      if(mode==="add-throws")f.document.addEventListener=()=>{throw Error("synthetic listener");};
+      if(mode==="add-registers-then-throws"){const add=f.document.addEventListener;f.document.addEventListener=(...a)=>{add(...a);throw Error("synthetic listener");};}
+      f.startLoader();f.pack({});const terminal=f.appended[0];terminal.onload();assert.deepEqual(f.calls(),[]);assert.equal(f.context.__readyHooks,0);
+      Object.defineProperty(f.document,"readyState",{configurable:true,writable:true,value:"complete"});f.callback();
+      terminal.onload();f.fireDocument("DOMContentLoaded");assert.deepEqual(f.calls(),[]);assert.equal(f.listeners.get("DOMContentLoaded")?.size||0,0);
+      assert.equal(f.appended.length,1);assert.equal(f.timers.length,0);assert.equal(f.requests.length,0);
+    }
+    const f=publicFixture(read,"complete");f.callback();f.startLoader();f.appended[0].onerror();f.fireDocument("DOMContentLoaded");
+    assert.deepEqual(f.calls(),[]);assert.ok(f.document.body.innerHTML.includes("Pack not found"));assert.equal(f.appended.length,1);assert.equal(f.timers.length,0);
+  });
+  await test("boot: reentrancy and real engine exceptions settle once without guard reset",()=>{
+    for(const throws of [false,true]){
+      const f=publicFixture(read);f.startLoader();f.pack({});const terminal=f.appended[0];
+      f.context.__reenter=()=>{terminal.onload();f.fireDocument("DOMContentLoaded","complete");};
+      f.evaluate('window._packReady=function(){__readyCalls.push(this===window);__reenter();'+(throws?'throw Error("synthetic initialization");':'')+'};');
+      terminal.onload();if(throws)assert.throws(()=>f.fireDocument("DOMContentLoaded","interactive"));else f.fireDocument("DOMContentLoaded","interactive");
+      assert.deepEqual(f.calls(),[true]);terminal.onload();f.fireDocument("DOMContentLoaded","complete");assert.deepEqual(f.calls(),[true]);assert.equal(f.listeners.get("DOMContentLoaded").size,0);assert.equal(f.timers.length,0);
+    }
+    const f=createRuntime({read,id:"public-fixture",publicLoader:{readyState:"loading"}});f.startLoader();f.context.ACED_PACK=null;const terminal=f.appended[0];terminal.onload();f.defineEngine();
+    assert.throws(()=>f.fireDocument("DOMContentLoaded","interactive"));assert.equal(f.context._ACED_BOOTED,true);assert.deepEqual(f.deliveries,[true]);
+    terminal.onload();f.fireDocument("DOMContentLoaded","complete");assert.deepEqual(f.deliveries,[true]);assert.equal(f.context._ACED_BOOTED,true);assert.equal(f.requests.length,0);
+  });
   await test("copy: actual initial modal makes the quiz optional and retains full casual access",()=>{
     const f=runtime({read}),marker='<p class="help">Clear a ',parts=f.modal().split(marker);
     assert.equal(parts.length,2,"the actual initial help paragraph must be unique");

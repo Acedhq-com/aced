@@ -138,6 +138,47 @@ function createRuntime(options = {}) {
   const evaluate = (source, filename) => vm.runInContext(source, context, { filename, timeout: 3000 });
   ["aced-library.js", "aced-bridge.js", "aced-core.js", "packs/core-jokers.js"].forEach(file =>
     evaluate(sourceRead(file), file));
+  if (options.publicLoader) {
+    // Explicit event/script scheduling, not HTML parsing or real requests.
+    assert.equal(alternate.filter(s=>s.includes("(function loadPack()")).length,1);
+    assert.equal(alternate.filter(s=>s.includes("window._packReady=function")).length,1);
+    const listeners = new Map(), listenerAdds = [], listenerRemoves = [], timers = [];
+    document.readyState = options.publicLoader.readyState || "loading";
+    document.addEventListener = (type, fn) => {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(fn); listenerAdds.push(type);
+    };
+    document.removeEventListener = (type, fn) => {
+      if (listeners.has(type)) listeners.get(type).delete(fn);
+      listenerRemoves.push(type);
+    };
+    context.setTimeout = (fn, ms) => { timers.push({fn, ms}); return timers.length; };
+    let started = false, defined = false;
+    evaluate("globalThis.__publicDeliveries=[]", "fixture:public-counter");
+    return {
+      context, document, elements, memory, writes, sanitized, logs, requests, appended,
+      node, evaluate, listeners, listenerAdds, listenerRemoves, timers,
+      get api() { return context.__runtime; },
+      get deliveries() { return Array.from(context.__publicDeliveries); },
+      startLoader() {
+        assert.equal(started, false); started = true;
+        evaluate(actualLoader, "study.html:actual-public-loader");
+      },
+      defineEngine() {
+        assert.equal(defined, false); defined = true;
+        const anchor = "window._packReady=function(){";
+        assert.equal(actualEngine.split(anchor).length, 2);
+        evaluate(actualEngine.replace(anchor, anchor+"window.__publicDeliveries.push(this===window);")
+          .replace(end, hook+end), "study.html:actual-public-engine");
+      },
+      fireDocument(type, state) {
+        if (state !== undefined) document.readyState = state;
+        for (const fn of [...(listeners.get(type) || [])]) fn.call(document, {type, target:document});
+      },
+      modal() { return document.getElementById("modal").innerHTML; },
+      loaderSource: actualLoader
+    };
+  }
   const raw = options.raw || { id, name: "Runtime fixture", questions: [
     { id: "fixture-q1", q: "Synthetic question?", source: "Fixture topic",
       choices: ["Synthetic yes", "Synthetic no"], answer: 0, explain: "Synthetic explanation." }
