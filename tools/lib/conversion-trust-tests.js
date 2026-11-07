@@ -483,7 +483,10 @@ module.exports = async function () {
     }
   });
   await test("T07 exact Home purposes, disclosures and only relevant FAQ changes", async () => {
-    const html = read("index.html"), plain = html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ");
+    const html = read("index.html");
+    const f = fixture();
+    f.document.documentElement.innerHTML = html;
+    const plain = (f.document.body && f.document.body.textContent ? f.document.body.textContent : f.document.documentElement.textContent).replace(/\s+/g, " ");
     const processing = "Supported pasted text and files are processed in your browser to build a pack. The parser does not upload the original document for processing.";
     const sync = "Packs are saved in this browser when storage is available. Optional account sync can send saved progress to ACED's backend, including associated IDs, source or topic labels, review and calibration history, and event records. These fields can include text you entered; sync is not limited to XP and streaks.";
     const control = "The Library's delete action targets a local pack and that pack’s data in this browser. It is not a clear-all tool for saved drafts, other browser data, cloud copies or launch-list records. This page does not provide a cloud or launch-list deletion control.";
