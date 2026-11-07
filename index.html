@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ACED — study is a video game now</title>
-<meta name="description" content="ACED turns any study material into a roguelike you actually want to play. Paste notes on any subject — a chapter, a whole course, a random Wikipedia page — and every hand becomes a real question with confidence scoring and spaced review. Free, no signup." />
+<meta name="description" content="Play ACED with a sample pack or import supported question-and-answer material for editable review. Poker hands clear score targets; question practice is optional. Free, no signup." />
 <link rel="canonical" href="https://acedhq.com/" />
 <meta name="theme-color" content="#070b08" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -14,14 +14,14 @@
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="ACED" />
 <meta property="og:title" content="ACED — study is a video game now" />
-<meta property="og:description" content="A roguelike engine for any study material. Paste notes on any subject and every hand becomes a real question. Free, no signup." />
+<meta property="og:description" content="A study game with optional question practice. Try a sample pack or review supported structured material before play. Free, no signup." />
 <meta property="og:url" content="https://acedhq.com/" />
 <meta property="og:image" content="https://acedhq.com/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="ACED — study is a video game now" />
-<meta name="twitter:description" content="A roguelike engine for any study material. Paste notes on any subject and every hand becomes a real question." />
+<meta name="twitter:description" content="A study game with optional question practice. Try a sample pack or review supported structured material before play." />
 <meta name="twitter:image" content="https://acedhq.com/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -235,10 +235,10 @@
   .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 </style>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACED","applicationCategory":"EducationalApplication","operatingSystem":"Web","url":"https://acedhq.com/","description":"ACED is a study-game engine: paste any material and it turns into a roguelike you actually want to play, with real questions, confidence scoring, and spaced review woven into the core loop. Free, no signup.","author":{"@type":"Person","name":"Story Shaw"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Free to play, no signup."}}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"ACED","applicationCategory":"EducationalApplication","operatingSystem":"Web","url":"https://acedhq.com/","description":"A study game with optional question practice. Try a sample pack or import supported structured material for editable review. Free, no signup.","author":{"@type":"Person","name":"Story Shaw"},"offers":{"@type":"Offer","price":"0","priceCurrency":"USD","description":"Free to play, no signup."}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is ACED free?","acceptedAnswer":{"@type":"Answer","text":"Yes — the core game is free with no signup. Paste your own notes or play a pack from the library and start a run in seconds."}},{"@type":"Question","name":"What can I study with ACED?","acceptedAnswer":{"@type":"Answer","text":"Anything you can write as short pairs. Class notes, textbook chapters, language vocab, code snippets, trivia, Wikipedia articles — any subject. Paste text, upload a PDF, or browse the library for a ready-to-play pack."}},{"@type":"Question","name":"How does it work?","acceptedAnswer":{"@type":"Answer","text":"You draw cards, play poker hands, and buy jokers to clear score targets called blinds. Playing a hand asks a question from whatever material you loaded. Answer right, choose your confidence, and misses come back on a spaced schedule."}},{"@type":"Question","name":"Is this only for one type of exam?","acceptedAnswer":{"@type":"Answer","text":"No. ACED is a study-game engine, not a subject-specific app. The same roguelike loop runs on any content you give it — school subjects, hobbies, professional material, or anything you're just curious about."}},{"@type":"Question","name":"Do I need an account?","acceptedAnswer":{"@type":"Answer","text":"No account is required to play. Optional account sync can send progress and associated IDs, labels and history to ACED's backend when available. See Data handling for storage and deletion limits."}},{"@type":"Question","name":"Where are my notes stored?","acceptedAnswer":{"@type":"Answer","text":"Supported pasted text and files are processed in your browser to build a pack. The parser does not upload the original document for processing. Packs are saved in this browser when storage is available. Optional account sync can send saved progress to ACED's backend, including associated IDs, source or topic labels, review and calibration history, and event records. These fields can include text you entered; sync is not limited to XP and streaks. The Library's delete action targets a local pack and that pack’s data in this browser. It is not a clear-all tool for saved drafts, other browser data, cloud copies or launch-list records. This page does not provide a cloud or launch-list deletion control."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What input is supported?","acceptedAnswer":{"@type":"Answer","text":"Use Term: definition lines or Q:/A: blocks, then review the questions before play. Arbitrary articles, links and prose are not automatically turned into a deck."}},{"@type":"Question","name":"Is question practice required?","acceptedAnswer":{"@type":"Answer","text":"Play poker hands to clear score targets. Between rounds, optional question practice lets you choose LOW, MED or HIGH confidence. You can win the casual game without answering questions."}},{"@type":"Question","name":"How is original material processed?","acceptedAnswer":{"@type":"Answer","text":"Pasted text and original PDF/Word files are processed in your browser. Supported structured material becomes study questions for you to review; ACED does not automatically understand arbitrary documents or fetch study links."}},{"@type":"Question","name":"What can sync or launch updates send?","acceptedAnswer":{"@type":"Answer","text":"If you sign in and sync, study progress can include question, topic or source labels and other text-bearing study data. Optional launch updates send your email to the configured service. Older versions may already have retained email copies locally or in synced snapshots."}},{"@type":"Question","name":"What does deleting a pack remove?","acceptedAnswer":{"@type":"Answer","text":"Deleting a pack removes that pack’s data in this browser. It does not clear every draft, earlier email copy, other device or cloud snapshot. Keep an export if you need a backup."}}]}
 </script>
 </head>
 <body>
@@ -266,18 +266,18 @@
         <!-- LEFT: message + CTAs -->
         <div>
           <h1>Study is a <span class="hl">video game</span><br>now &mdash; <span class="am">for anything you want to learn.</span></h1>
-          <p class="lede">Paste Term: definition lines or Q&amp;A pairs. You'll see exactly which lines became cards before you play. <b>Hands, blinds, jokers, and runs</b>, with your material woven in as real questions and <b>confidence scoring</b>. Miss one and it comes back on a <b>spaced schedule</b>.</p>
+          <p class="lede" id="supported-input">Use Term: definition lines or Q:/A: blocks, then review the questions before play. Arbitrary articles, links and prose are not automatically turned into a deck.</p>
           <div class="kicker">Forget you're studying. Chase the next run.</div>
 
           <div class="ctas">
-            <a class="btn primary" href="study.html" id="primaryCta">&#9654; PLAY<span class="sub">POKER HANDS + REAL QUESTIONS &middot; ONE GAME</span></a>
-            <a class="btn" href="importer.html">PASTE YOUR OWN NOTES<span class="sub">ANY SUBJECT BECOMES A DECK</span></a>
+            <a class="btn primary" href="study.html?pack=world-capitals" id="primaryCta">PLAY A SAMPLE PACK<span class="sub">WORLD CAPITALS &middot; NO UPLOAD NEEDED</span></a>
+            <a class="btn" href="importer.html">PASTE YOUR OWN NOTES<span class="sub">STRUCTURED PAIRS &middot; EDITABLE REVIEW</span></a>
           </div>
 
           <p class="microcopy">
             <span class="badge">FREE &middot; NO SIGNUP</span>
             <span class="badge">YOUR NOTES STAY YOURS</span><br>
-            Works with <b style="color:var(--cyan)">any subject</b> &mdash; paste <b>Term: definition</b> lines, Q&amp;A pairs, a syllabus, or lecture notes. Prefer to browse first? <a href="library.html">explore the library &rarr;</a>
+            Use supported pairs or authored questions from any subject. For original PDF or Word files, <a href="importer-classic.html">open the document importer</a>. Prefer to browse first? <a href="library.html">explore the library &rarr;</a>
           </p>
         </div>
 
@@ -307,7 +307,7 @@
               <span class="jk" title="A joker is a modifier that bends the rules in your favor.">JOKER: +30 CHIPS/PAIR</span>
               <span class="jk">JOKER: X2 ON HEARTS</span>
             </div>
-            <div class="question-overlay" aria-label="study question that appears when you play a hand">
+            <div class="question-overlay" aria-label="illustration of optional question practice">
               <div class="q">Which organelle makes most of a cell's <b>ATP</b>?</div>
               <div class="conv" role="group" aria-label="confidence bet">
                 <div class="bt" title="Low: I'm guessing.">LOW</div>
@@ -317,7 +317,7 @@
             </div>
           </div>
           <div class="preview-caption">
-            To beat the blind and keep your run alive, you answer real questions from your notes. Your <b>LOW / MED / HIGH</b> choice becomes your confidence score.
+            Optional practice is separate from clearing the blind. LOW / MED / HIGH records confidence for submitted practice answers.
           </div>
         </aside>
       </div>
@@ -333,7 +333,7 @@
         <!-- Mode A: I have material -->
         <div class="mode a">
           <h3>I HAVE SOMETHING TO STUDY</h3>
-          <p>Paste anything &mdash; class notes, a textbook chapter, a language deck, code snippets, trivia. <b style="color:var(--cyan)">Term: definition</b> lines or Q&amp;A pairs work best. ACED turns them into cards and weaves them into your next run.</p>
+          <p>Paste explicit Term: definition lines or Q:/A: blocks. Review the supported questions and answers before play; other prose can be left out.</p>
           <label for="bootNotes" class="sr">Paste your notes</label>
           <textarea id="bootNotes" placeholder="Term: definition&#10;Capital of France: Paris&#10;Derivative of x²: 2x&#10;Mitochondria: the organelle that makes most of a cell's ATP&#10;Photosynthesis: how plants convert sunlight into chemical energy"></textarea>
           <div class="example" aria-hidden="true">Works with anything you can write as short pairs:
@@ -342,17 +342,19 @@ Q: What is habeas corpus?
 A: A court order to bring a detained person before a judge
 Spanish: perro / dog</div>
           <div class="cta-row">
-            <button class="btn primary" id="bootGo" type="button">&#9654; COMPILE &amp; PLAY<span class="sub">TURNS ANY NOTES INTO A RUN</span></button>
-            <a class="btn ghost" href="importer-classic.html">Upload PDF instead</a>
+            <button class="btn primary" id="bootGo" type="button">REVIEW MY QUESTIONS<span class="sub">CHECK SUPPORTED MATERIAL BEFORE PLAY</span></button>
+            <a class="btn ghost" href="importer-classic.html">Import PDF or Word</a>
           </div>
+          <p id="bootStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+          <a href="importer.html">Open the importer directly to paste your text</a>
         </div>
 
         <!-- Mode B: I just want to play -->
         <div class="mode b">
           <h3>I JUST WANT TO TRY THE GAME</h3>
-          <p>No notes needed. Run the free 60-second demo &mdash; hands, blinds, jokers, and confidence bets exactly the way they work in a real study run. Bring your own material anytime.</p>
+          <p id="sample-purpose">Try the game with the World Capitals sample pack. No upload is needed.</p>
           <div class="cta-row">
-            <a class="btn primary" href="study.html">&#9654; 60-SEC DEMO<span class="sub">NO DECK &middot; NOTHING TO LOAD</span></a>
+            <a class="btn primary" href="study.html?pack=world-capitals">PLAY A SAMPLE PACK<span class="sub">WORLD CAPITALS &middot; NO UPLOAD NEEDED</span></a>
             <a class="btn ghost" href="library.html">Browse the library</a>
           </div>
           <p style="color:var(--grey);font-size:15px;margin:8px 0 0">Want to see the engine on something concrete? The <a href="library.html" style="color:var(--green);text-decoration:underline;text-underline-offset:3px">library</a> has ready-to-play example packs across a bunch of subjects.</p>
@@ -386,9 +388,9 @@ Spanish: perro / dog</div>
         <div class="card c3">
           <div class="k">STUDY (WOVEN IN)</div>
           <ul>
-            <li>Load a pack and playing a hand asks a <em>question</em>.</li>
-            <li>Answer right to bank it &mdash; your conviction becomes how sure you were.</li>
-            <li>Misses come back on a <em>spaced schedule</em>, hardest first.</li>
+            <li>Open optional question practice between rounds.</li>
+            <li>Choose LOW / MED / HIGH confidence before submitting an answer.</li>
+            <li>Recorded answers and game progress describe different things.</li>
           </ul>
         </div>
       </div>
@@ -397,13 +399,13 @@ Spanish: perro / dog</div>
         <div class="hd">ONE LINE OF NOTES, START TO FINISH &mdash; EXAMPLE</div>
         <div class="bd">
           <div class="row"><span class="step">YOU PASTE</span><span>Mitochondria: the organelle that makes most of a cell's ATP</span></div>
-          <div class="row"><span class="step">ACED ASKS</span><span>Which organelle makes most of a cell's <b>ATP</b>?</span></div>
+          <div class="row"><span class="step">REVIEW</span><span>What is Mitochondria? Answer: the organelle that makes most of a cell's ATP.</span></div>
           <div class="row"><span class="step">YOU CALL</span><span class="bet">LOW</span><span class="bet">MED</span><span class="bet on">HIGH</span></div>
-          <div class="row"><span class="step">RESULT</span><span class="score">+300 CHIPS &middot; CORRECT</span></div>
-          <div class="row later"><span class="step">REVIEW</span><span>Scheduled to resurface <b>in 3 days</b>. Miss it, it comes back sooner; ace it again and it stretches to a week, then a month.</span></div>
+          <div class="row"><span class="step">PRACTICE</span><span class="score">OPTIONAL MULTIPLE-CHOICE ANSWER</span></div>
+          <div class="row later"><span class="step">LIMIT</span><span>Assembled answer choices are not a test of free recall. Review your material and the generated choices.</span></div>
         </div>
       </div>
-      <p class="loopnote">Play free with nothing loaded, or drop in your own material and the same run builds real recall. Missed questions resurface via <b style="color:var(--magenta)">spaced repetition</b>, and a <b style="color:var(--gold)">career ladder</b> plus daily objectives keep you coming back.</p>
+      <p class="loopnote" id="optional-practice">Play poker hands to clear score targets. Between rounds, optional question practice lets you choose LOW, MED or HIGH confidence. You can win the casual game without answering questions.</p>
     </div>
   </section>
 
@@ -416,8 +418,8 @@ Spanish: perro / dog</div>
         <ul>
           <li>Most study apps just put <b>points, streaks, or badges</b> on top of quizzes.</li>
           <li>ACED starts as a game you'd play anyway &mdash; blinds, hands, jokers, and runs that can stand alone.</li>
-          <li>Your material isn't a separate mode &mdash; it's woven into the core loop as <b>questions and confidence bets</b>.</li>
-          <li>The dopamine is real: <b>to win runs, you have to remember your content</b>.</li>
+          <li>Your reviewed material is available in optional question practice.</li>
+          <li>Game rewards and progress are not proof of recall or future test performance.</li>
         </ul>
       </div>
     </div>
@@ -437,8 +439,8 @@ Spanish: perro / dog</div>
         <h4>ONE ENGINE, ANY SUBJECT</h4>
         <dl>
           <dt>WHAT IT IS</dt><dd>ACED is a study-game engine, not a subject-specific app. Give it a set of questions or notes and it runs the same roguelike loop &mdash; hands, blinds, jokers, spaced review &mdash; on whatever you loaded.</dd>
-          <dt>WHAT YOU BRING</dt><dd>Anything you can write as short pairs. Class notes, a chapter, a syllabus, flashcards you already made, a Wikipedia article, code snippets, vocab lists. Paste, upload a PDF, or point it at a link.</dd>
-          <dt>WHY A GAME</dt><dd>Most study apps put points on top of quizzes. ACED starts as a game you'd play anyway &mdash; then the winning move happens to be remembering your material. The dopamine is real because the game is real.</dd>
+          <dt>WHAT YOU BRING</dt><dd>Supported structured pairs or authored questions, reviewed before play. The document importer can read text-based PDF and Word material; arbitrary articles and links are not automatically understood.</dd>
+          <dt>WHY A GAME</dt><dd>ACED combines a card game with optional question practice. Choose what to practice without treating the game score as evidence of recall.</dd>
           <dt>LIBRARY</dt><dd>Search the <a href="library.html" style="color:var(--green);text-decoration:underline;text-underline-offset:3px">library</a> for a ready-to-play pack on your subject &mdash; or build one in seconds from your own notes.</dd>
         </dl>
       </div>
@@ -454,7 +456,7 @@ Spanish: perro / dog</div>
         <div class="rrow beta" role="link" tabindex="0" title="Bring your own notes" onclick="location.href='importer.html'" onkeydown="if(event.key==='Enter')location.href='importer.html'" style="cursor:pointer">
           <div class="code">YOU</div>
           <div class="nm">Bring your own notes &mdash; any subject
-            <small>The main event. Paste, upload, or point at a link. Perfect for students, hobbyists, and anyone learning something new.</small>
+            <small>Use supported structured pairs or authored questions, then inspect and edit the review before play.</small>
           </div>
           <div class="st">START</div>
         </div>
@@ -468,7 +470,7 @@ Spanish: perro / dog</div>
         <div class="rrow live" role="link" tabindex="0" title="Share a pack you built" onclick="location.href='importer.html'" onkeydown="if(event.key==='Enter')location.href='importer.html'" style="cursor:pointer">
           <div class="code">SHARE</div>
           <div class="nm">Turn any deck into a link
-            <small>Build a pack, copy a play link, send it to a friend or your class. They play it instantly &mdash; no signup, nothing stored on any server.</small>
+            <small>Review a pack and share its link or export. Shared links contain the material you choose to share.</small>
           </div>
           <div class="st">NEW</div>
         </div>
@@ -484,20 +486,19 @@ Spanish: perro / dog</div>
         <div class="trust-grid">
           <div class="trust-cell">
             <div class="k">NOTES PROCESSING</div>
-            <p>Supported pasted text and files are processed in your browser to build a pack. The parser does not upload the original document for processing.</p>
+            <p id="processing-disclosure">Pasted text and original PDF/Word files are processed in your browser. Supported structured material becomes study questions for you to review; ACED does not automatically understand arbitrary documents or fetch study links.</p>
           </div>
           <div class="trust-cell">
             <div class="k">STORAGE &amp; RETENTION</div>
-            <p>Packs are saved in this browser when storage is available. Optional account sync can send saved progress to ACED's backend, including associated IDs, source or topic labels, review and calibration history, and event records. These fields can include text you entered; sync is not limited to XP and streaks.</p>
+            <p id="sync-disclosure">If you sign in and sync, study progress can include question, topic or source labels and other text-bearing study data. Optional launch updates send your email to the configured service. Older versions may already have retained email copies locally or in synced snapshots.</p>
           </div>
           <div class="trust-cell">
             <div class="k">CONTROL &amp; NO STREAK-GUILT</div>
-            <p>The <a href="library.html" style="color:var(--green);text-decoration:underline;text-underline-offset:3px">Library</a>'s delete action targets a local pack and that pack’s data in this browser. It is not a clear-all tool for saved drafts, other browser data, cloud copies or launch-list records. This page does not provide a cloud or launch-list deletion control.</p>
-            <p>No punishment for missing a day &mdash; streaks celebrate consistency, not shame.</p>
+            <p id="deletion-disclosure">Deleting a pack removes that pack’s data in this browser. It does not clear every draft, earlier email copy, other device or cloud snapshot. Keep an export if you need a backup.</p>
+            <a href="library.html">Manage packs in your library</a>
           </div>
         </div>
-        <p style="color:var(--white);font-size:16px;margin:16px 0 0">Launch-list forms send the email and form source you choose to submit to the notification service. These updated forms do not add a new address to browser progress storage. Older versions may have stored addresses in browser data that can still be included in optional sync. Request acceptance does not confirm email delivery.</p>
-        <p style="color:var(--grey);font-size:16px;margin:16px 0 0">Bigger uploads and optional AI deck-generation are coming later as a paid upgrade. When they land, we'll spell out exactly what leaves the browser and let you opt in per deck. The core game stays free.</p>
+        <p>Shared links and exports contain the material you choose to share. Review their contents before sending them to someone else.</p>
       </div>
     </div>
   </section>
@@ -508,14 +509,14 @@ Spanish: perro / dog</div>
       <div class="capture">
         <div class="eyebrow">stay in the loop</div>
         <h2 class="h2">Get in early.</h2>
-        <p>Get updates about ACED features and study packs. Submit your email to request launch updates.</p>
-        <p id="capPurpose">Submitting sends your email and this form's source to the notification service. See <a href="#trust">Data handling</a>.</p>
+        <p id="capture-intro">Get updates about ACED features and study packs. Submit your email to request launch updates.</p>
         <form class="formrow" id="capForm" data-aced-notify data-source="home" data-endpoint="" novalidate>
           <label for="capEmail">Email address</label>
           <input id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" aria-describedby="capPurpose capNote" />
           <button type="submit">NOTIFY ME</button>
         </form>
-        <div class="capnote" id="capNote" role="status" aria-live="polite"></div>
+        <div class="capnote" id="capNote" role="status" aria-live="polite" aria-atomic="true"></div>
+        <p id="capture-disclosure">An accepted request confirms registration with the service, not email delivery, a new subscription or updates for a particular pack. No launch date is promised.</p>
       </div>
     </div>
   </section>
@@ -579,11 +580,23 @@ Spanish: perro / dog</div>
       try{
         if(window.ACEDLibrary){
           window.ACEDLibrary.parse(txt,{report:true});
-          window.ACEDLibrary.stashDraft({text:txt,name:"",subject:""});
-          if(!window.ACEDLibrary.isPersistent() && txt.length<=60000) dest+="#notes="+window.ACEDLibrary.encode(txt);
+          var L=window.ACEDLibrary,persisted=false;
+          try{
+            var wrote=L.stashDraft({text:txt,name:"",subject:""});
+            var available=wrote===true&&L.isPersistent()===true,back=available?L.getDraft():null;
+            persisted=available&&back&&back.text===txt&&L.isPersistent()===true;
+          }catch(_){}
+          if(!persisted){
+            var payload=txt.length<=60000?L.encode(txt):"";
+            if(!payload||payload.length>200000||L.decode(payload)!==txt)throw new Error("handoff unavailable");
+            dest+="#notes="+payload;
+          }
+        }else{
+          throw new Error("handoff unavailable");
         }
       }catch(e){
-        var errorSub=bootGo.querySelector(".sub"); if(errorSub) errorSub.textContent=e.message;
+        var errorStatus=document.getElementById("bootStatus");
+        if(errorStatus)errorStatus.textContent="Your notes could not be handed to the next page safely. They are still here. Copy them, then open the importer directly and paste them there.";
         bootNotes.focus(); return;
       }
       try{ if(window.ACEDCore) ACEDCore.analytics.track("boot_compile",{len:txt.length}); }catch(_){}
@@ -592,5 +605,6 @@ Spanish: perro / dog</div>
   }
 })();
 </script>
+<script src="notify.js"></script>
 </body>
 </html>

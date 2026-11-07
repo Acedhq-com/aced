@@ -9,6 +9,9 @@
   <link rel="canonical" href="https://acedhq.com/importer.html">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="app.css">
+  <style id="aced-product-success-import-borders">
+    #pack-form input:not([type]),#pack-form input[type="text"],#pack-form textarea{border-color:#638b76}
+  </style>
   <script src="aced-library.js" defer></script>
   <script src="aced-ui.js" defer></script>
   <script src="aced-importer.js" defer></script>
@@ -29,7 +32,7 @@
   <main id="main" class="page narrow">
     <span class="eyebrow" id="import-eyebrow">aced.create / Bring your own material</span>
     <div class="page-heading"><div><h1 id="import-title">Make it a playable pack.</h1><p id="import-subtitle">Upload. Review. Play. No setup beyond your questions.</p></div><a class="text-link" href="library.html">← Your library</a></div>
-    <div id="import-status" class="status" role="status" aria-live="polite" hidden></div>
+    <div id="import-status" class="status" role="status" aria-live="polite" aria-atomic="true" hidden></div>
     <form id="pack-form" novalidate>
       <div class="form-panel">
         <div class="field-grid">
@@ -59,7 +62,8 @@
           </details>
         </div>
         <div id="review-stage" hidden>
-          <p class="hint" id="review-description">Check the answers before you play. During a run, every card becomes a multiple-choice question you bet LOW, MED or HIGH on. Cards without answer choices get wrong options drawn from your other answers.</p>
+          <p class="hint" id="review-description">Check every answer before play. Optional question practice uses multiple-choice answers. Where choices were not authored, options can be assembled from other answers; this is not a test of free recall.</p>
+          <p class="hint" id="importer-practice">Play poker hands to clear score targets. Between rounds, optional question practice lets you choose LOW, MED or HIGH confidence. You can win the casual game without answering questions.</p>
           <details class="advanced"><summary>Run settings <span class="muted">(optional)</span></summary>
             <fieldset style="border:0;padding:0;margin:0 0 14px">
               <legend class="field-label">Stakes</legend>
@@ -80,6 +84,6 @@
       </section>
     </form>
   </main>
-  <footer class="site-footer"><span>ACED · Your questions never leave your browser unless you share them.</span><a href="library.html">Back to library</a></footer>
+  <footer class="site-footer"><span id="importer-data">Original material is parsed in your browser. Optional account sync can include text-bearing study data; shared links or exports contain the material you choose to share.</span><a href="library.html">Back to library</a></footer>
 </body>
 </html>

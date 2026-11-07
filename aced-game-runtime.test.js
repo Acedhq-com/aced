@@ -83,7 +83,7 @@ test("C01: actual audit chooser and selected topic handlers preserve escaped lab
   const [button] = f.choices(".auditpick", [{ mk: hostile }]);
   f.api.renderAuditPicker([{ mk: hostile, pct: 2, charge: 1, bounty: 10 }]);
   inert(f.modal()); assert.ok(f.modal().includes('data-mk="' + escaped + '"'));
-  assert.ok(f.modal().includes('aria-label="' + escaped + ", mastery"));
+  assert.ok(f.modal().includes('aria-label="' + escaped + ", game progress"));
   button.onclick();
   inert(f.modal()); assert.ok(f.modal().includes(escaped));
   assert.equal(f.api.qbank[0].source, hostile, "handler must not rewrite original topic");
@@ -452,3 +452,9 @@ integrityTest("T12/T13 finite accessible library progress text matches own pract
 });
 
 require("./tools/lib/question-id-feedback-tests")(test);
+test("Product-success S2 actual-source aggregate", async () => {
+  const result = await require("./tools/lib/product-success-s2-tests").run();
+  result.results.forEach(entry => console.log((entry.ok ? "PASS " : "FAIL ") + entry.name));
+  console.log("product-success-s2: " + result.passed + " passed, " + result.failed + " failed.");
+  assert.equal(result.failed, 0, "all product-success S2 groups must pass");
+});
