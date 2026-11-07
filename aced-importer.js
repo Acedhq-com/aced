@@ -4,7 +4,8 @@
   var form = document.getElementById("pack-form"), notes = document.getElementById("pack-notes");
   var nameInput = document.getElementById("pack-name"), subjectInput = document.getElementById("pack-subject");
   var editors = document.getElementById("question-editors"), current = null, filename = "", editing = false;
-  var parsed = null, issuesAccepted = true, editingIdentity = null, reviewEdited = false;
+  var parsed = null, issuesAccepted = true, editingIdentity = null, reviewEdited = false, fileGeneration = 0, fileReviewHeld = false;
+  function invalidateFile() { fileGeneration++; }
   var params = new URLSearchParams(location.search);
   function status(message, error) {
     var el = document.getElementById("import-status");
@@ -22,11 +23,12 @@
     if (!editing) L.stashDraft({ text: notes.value, name: nameInput.value, subject: subjectInput.value });
   }
   function updateSaveButtons() {
-    var blocked = !current || !current.questions.length || !issuesAccepted;
+    var blocked = !current || !current.questions.length || !issuesAccepted || fileReviewHeld;
     document.getElementById("save-play").disabled = blocked;
     document.getElementById("save-library").disabled = blocked;
   }
   function showInput(preserveOriginal) {
+    invalidateFile();
     document.getElementById("input-stage").hidden = false;
     document.getElementById("review-stage").hidden = true;
     document.getElementById("questions-section").hidden = true;
@@ -55,7 +57,7 @@
       var proceed = document.createElement("button"); proceed.type = "button"; proceed.className = "button"; proceed.id = "continue-lines";
       proceed.textContent = "Continue without these lines"; proceed.disabled = !current || !current.questions.length || issuesAccepted;
       proceed.onclick = function () {
-        if (!current || !current.questions.length) return;
+        if (!current || !current.questions.length || fileReviewHeld) return;
         issuesAccepted = true; updateSaveButtons(); renderReport();
         document.getElementById("save-play").focus();
       };
@@ -69,7 +71,7 @@
     editors.textContent = ""; document.getElementById("questions-section").hidden = true;
     updateSaveButtons(); status("");
   }
-  function setReview(pack, result) {
+  function setReview(pack, result, focus) {
     current = pack; parsed = result || null; issuesAccepted = !parsed || !parsed.issues.length; reviewEdited = false;
     if (pack) {
       nameInput.value = pack.name; subjectInput.value = pack.subject === "General" ? "" : pack.subject;
@@ -82,9 +84,10 @@
     document.getElementById("import-title").textContent = editing ? "Make this pack yours." : "Ready for a run?";
     document.getElementById("import-subtitle").textContent = "Check your questions, then save and play. No loadout decisions required.";
     renderReport();
-    if (pack && issuesAccepted) document.getElementById("save-play").focus();
+    if (pack && issuesAccepted && focus !== false) document.getElementById("save-play").focus();
   }
-  function parseNotes(review, options) {
+  function parseNotes(review, options, focus) {
+    fileReviewHeld = false;
     clearResult();
     options = Object.assign({}, options || metadata(), { report: true });
     var result = L.parse(notes.value, options), pack = result.pack;
@@ -92,7 +95,7 @@
       if (editingIdentity) { pack.id = editingIdentity.id; pack.createdAt = editingIdentity.createdAt; }
       else pack.id = L.newId(pack.name);
     }
-    if (review) setReview(pack, result);
+    if (review) setReview(pack, result, focus);
     else { current = pack; parsed = result; issuesAccepted = !result.issues.length; renderReport(); }
     return result;
   }
@@ -113,6 +116,7 @@
     }).join("");
   }
   editors.oninput = function (event) {
+    invalidateFile();
     var field = event.target, block = field.closest("[data-question]");
     if (!block) return;
     var q = current.questions[Number(block.dataset.question)];
@@ -128,12 +132,14 @@
   };
   editors.onchange = editors.oninput;
   editors.onclick = function (event) {
+    invalidateFile();
     var button = event.target.closest("[data-remove]");
     if (!button || !current) return;
     current.questions.splice(Number(button.dataset.remove), 1); reviewEdited = true; renderEditors(); renderReport();
   };
   form.onsubmit = function (event) {
     event.preventDefault();
+    invalidateFile();
     if (!document.getElementById("input-stage").hidden) {
       try {
         parseNotes(true);
@@ -141,25 +147,27 @@
     }
   };
   async function readFile(file) {
-    if (!file) return;
+    var generation = ++fileGeneration;
+    fileReviewHeld = true; issuesAccepted = false; updateSaveButtons();
+    if (!file) { status("No file selected. Review your current source before saving.", true); return; }
     if (file.size > L.maxFileBytes) { status("That file is larger than 5 MB. Split it into smaller study packs.", true); return; }
     if (!/\.(json|csv|tsv|txt|md|markdown)$/i.test(file.name)) {
       status("Choose a JSON, CSV, TSV, TXT or Markdown study pack. PDFs and documents need question/answer formatting first.", true); return;
     }
     try {
-      clearResult();
-      filename = file.name;
-      notes.value = await file.text();
+      var text = await file.text();
+      if (generation !== fileGeneration) return;
+      filename = file.name; notes.value = text;
       var options = metadata();
       if (!nameInput.value.trim()) options.name = file.name.replace(/\.(aced\.)?(json|csv|tsv|txt|md|markdown)$/i, "").replace(/[-_]/g, " ");
-      var ownTitle = !nameInput.value.trim(), result = parseNotes(true, options), pack = result.pack;
+      var ownTitle = !nameInput.value.trim(), result = parseNotes(true, options, false), pack = result.pack;
       // An exported pack's own title takes precedence over the filename.
       if (pack && /^\s*[\[{]/.test(notes.value) && ownTitle) {
         var raw = JSON.parse(notes.value);
         if (raw.name || raw.title) pack.name = String(raw.name || raw.title).slice(0, 100);
       }
       stash(); if (pack) nameInput.value = pack.name;
-    } catch (e) { status(e.message, true); }
+    } catch (e) { if (generation === fileGeneration) status("This file could not be read as supported text. Your original file is unchanged. Try a supported structured text file or paste the text.", true); }
   }
   document.getElementById("pack-file").onchange = function (event) { readFile(event.target.files[0]); };
   var dropzone = document.getElementById("dropzone");
@@ -173,6 +181,7 @@
     });
   });
   document.getElementById("example-button").onclick = function () {
+    invalidateFile();
     clearResult();
     notes.value = "Q: What kind of hands score points in ACED?\nA: Poker hands\n\nQ: What do correct answers earn?\nA: Insight and bonus cash\n\nQ: What can you buy between rounds?\nA: Jokers that change your scoring";
     if (!nameInput.value.trim()) nameInput.value = "ACED: getting started";
@@ -181,6 +190,7 @@
   };
   document.getElementById("back-input").onclick = showInput;
   document.getElementById("add-question").onclick = function () {
+    invalidateFile();
     if (!current) return;
     if (current.questions.length >= 2000) { status("This pack has reached the 2,000-question limit.", true); return; }
     current.questions.push({ id: "q-" + L.newId("new"), q: "Your question", answer: "Your answer", choices: [], source: "General", explain: "", kind: "recall" });
@@ -189,7 +199,7 @@
   };
   function save(play) {
     try {
-      if (!current || !current.questions.length || !issuesAccepted) { renderReport(); return; }
+      if (!current || !current.questions.length || !issuesAccepted || fileReviewHeld) { renderReport(); return; }
       current.name = nameInput.value.trim() || "Untitled pack";
       current.subject = subjectInput.value.trim() || "General";
       current = L.save(current); editing = true;
@@ -225,12 +235,14 @@
   document.getElementById("save-play").onclick = function () { save(true); };
   document.getElementById("save-library").onclick = function () { save(false); };
   notes.addEventListener("input", function () {
+    invalidateFile();
     var reparse = !!parsed; filename = ""; clearResult(); stash();
     if (reparse) {
       try { parseNotes(false); } catch (e) { status(e.message, true); }
     }
   });
-  nameInput.addEventListener("input", stash); subjectInput.addEventListener("input", stash);
+  nameInput.addEventListener("input", function () { invalidateFile(); stash(); });
+  subjectInput.addEventListener("input", function () { invalidateFile(); stash(); });
   updateSaveButtons();
   try {
     var shared = L.importShared(location.hash);
