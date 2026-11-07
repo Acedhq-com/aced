@@ -263,12 +263,13 @@
     if (signInRefused || pendingCode) return;
     if (!API || !getTok() || !window.ACEDCore || !ACEDCore.backend) return;
     if (!ownerAllowsSync(getTok())) { syncHeld = true; return; }
+    syncHeld = false;
     try {
       ACEDCore.backend.configure({ endpoint: API, token: getTok() });
       if (ACEDCore.sync && ACEDCore.sync.isEnabled && ACEDCore.sync.isEnabled()) {
         ready = ACEDCore.sync.push()
           .then(function () { return ACEDCore.sync.pull(); })
-          .then(function (r) { try { if (r && r.applied && window.ACEDFX) ACEDFX.toast && ACEDFX.toast("Progress synced.", ACEDFX.palette.cyan); } catch (e) {} })
+          .then(function (r) { try { if (r && r.applied && window.ACEDFX) ACEDFX.toast && ACEDFX.toast("Server response applied on this page.", ACEDFX.palette.cyan); } catch (e) {} })
           .catch(function () {});
       }
     } catch (e) {}

@@ -253,5 +253,15 @@ test("Change input retains an unfinished question-editor edit", () => {
   assert.equal(raw.questions[0].answer, "");
 });
 
-console.log("aced-importer: " + passed + " passed, " + failed + " failed.");
-if (failed) process.exitCode = 1;
+// Keep every existing importer case above; await focused async page/controller
+// regressions before the final summary and propagate their failures to CI.
+(async function () {
+  try {
+    const capture = await require("./tools/lib/conversion-trust-tests.js")();
+    passed += capture.passed; failed += capture.failed;
+  } catch (_) {
+    failed++; console.error("FAIL conversion-trust asynchronous runner");
+  }
+  console.log("aced-importer: " + passed + " passed, " + failed + " failed.");
+  if (failed) process.exitCode = 1;
+})();

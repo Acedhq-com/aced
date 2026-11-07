@@ -77,9 +77,15 @@ t("db.js applies pgSslConfig before loading the driver and has no unconditional 
   const src = fs.readFileSync(path.join(__dirname, "db.js"), "utf8");
   ok(/const tls = pgSslConfig\(process\.env\);/.test(src), "db.js computes the policy");
   ok(/ssl: tls\.ssl/.test(src), "db.js passes the policy to the pool");
-  ok(src.indexOf("pgSslConfig(process.env)") < src.indexOf('require("pg")'), "policy runs before the driver loads");
+  ok(src.indexOf("pgSslConfig(process.env)") < src.indexOf('require("./db-tls-transport")'), "policy runs before the private driver factory loads");
   ok(!/rejectUnauthorized:\s*false/.test(src), "no rejectUnauthorized:false in db.js");
 });
 
-console.log("\ndb-tls.test.js: " + pass + " passed, " + fail + " failed");
-process.exit(fail ? 1 : 0);
+(async function () {
+  const additional = await require("./db-tls-transport.test").runUnit();
+  console.log("\ndb-tls.test.js: " + pass + " original passed, " + fail + " original failed; " + additional.passed + " additional passed, " + additional.failed + " additional failed");
+  process.exitCode = fail || additional.failed ? 1 : 0;
+})().catch(function () {
+  console.error("db-tls.test.js: awaited unit aggregate rejected");
+  process.exitCode = 1;
+});

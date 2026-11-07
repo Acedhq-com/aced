@@ -1,0 +1,19 @@
+# Default labels for pull requests in ACED.
+documentation:
+  - README.md
+  - docs/**
+  - "**/*.md"
+
+app:
+  - "*.html"
+  - "*.css"
+  - "*.js"
+  - "packs/**"
+
+tests:
+  - "**/*.test.js"
+  - "tools/**/*.js"
+  - "server/**/*.test.js"
+
+ci:
+  - ".github/**"
