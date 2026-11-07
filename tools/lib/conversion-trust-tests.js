@@ -107,7 +107,7 @@ function fixture(options = {}) {
       if (row) form.appendChild(controls);
       for (const input of m[2].matchAll(/<input\b([^>]*)>/gi)) controls.appendChild(element("input", attrs(input[1])));
       const b = m[2].match(/<button\b([^>]*)>([\s\S]*?)<\/button>/i);
-      if (b) { const button = element("button", attrs(b[1])); button.textContent = b[2].replace(/<[^>]*>/g, ""); controls.appendChild(button); }
+      if (b) { const button = element("button", attrs(b[1])); button.textContent = b[2].replace(/[<>]/g, ""); controls.appendChild(button); }
       const note = html.slice(m.index).match(/<div\b([^>]*class="capnote"[^>]*)>/i);
       if (note) {
         const n = element("div", attrs(note[1]));
