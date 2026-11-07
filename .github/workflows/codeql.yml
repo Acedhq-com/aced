@@ -10,6 +10,8 @@ name: "CodeQL Advanced (disabled)"
 on:
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
   noop:
     runs-on: ubuntu-latest
