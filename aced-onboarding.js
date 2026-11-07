@@ -29,7 +29,7 @@
     autoShow: true,
     storageKey: 'aced_onboarding_v2',              // bump the suffix to re-show after a copy change
     title: 'HOW A RUN WORKS',
-    subtitle: '30 seconds, then you play. Lose a run? Good \u2014 you come back sharper.',
+    subtitle: 'Play the casual game, with optional question practice between rounds.',
     sessionName: 'aced_onboarding.session',
     steps: [
       {
@@ -38,15 +38,15 @@
       },
       {
         label: 'STEP 2 \u00b7 POP QUIZ', color: 'amber',
-        body: 'Clear a round and a question from your weakest topic appears. Call your confidence \u2014 LOW / MED / HIGH \u2014 before you answer. Honesty scores: that is your calibration.'
+        body: 'After clearing a round, you can choose optional question practice. Call your confidence \u2014 LOW / MED / HIGH \u2014 before answering. Confidence changes this question\u2019s game rewards and risk.'
       },
       {
         label: 'STEP 3 \u00b7 THE SHOP', color: 'amber',
         body: 'Between rounds you cash out and shop: spend chips on jokers that bend scoring, grab a voucher, or reroll for new options. The right buys compound \u2014 they can turn a losing board into a blowout.'
       },
       {
-        label: 'STEP 4 \u00b7 MASTERY', color: 'cyan',
-        body: 'Every card and answer feeds per-topic mastery that carries across runs. Miss one and it is queued in Review. The goal is not one win \u2014 it is knowing the material cold.'
+        label: 'STEP 4 \u00b7 GAME PROGRESS', color: 'cyan',
+        body: 'Game progress increases through cards, answers and game rewards. It is not a measure of recall or a prediction of test performance. Questions are optional; full casual-game access remains available. See recording details for submitted answers.'
       }
     ],
     primaryLabel: 'START MY FIRST RUN',

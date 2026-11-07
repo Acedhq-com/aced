@@ -350,7 +350,7 @@
     { id: "combo_10",     name: "TEN STREAK",         desc: "10 correct answers in a row." },
     { id: "flawless",     name: "FLAWLESS ROUND",     desc: "Clear a round with no missed quiz." },
     { id: "calibrated",   name: "WELL-CALIBRATED",    desc: "Reach a B+ calibration grade." },
-    { id: "ready_60",     name: "ON TRACK",          desc: "Push a topic to 60% readiness." },
+    { id: "ready_60",     name: "ON TRACK",          desc: "Reach 60% topic game progress." },
     { id: "streak_7",     name: "SEVEN-DAY STREAK",  desc: "A 7-day Daily Run streak." },
     { id: "daily",        name: "DAILY GRIND",        desc: "Complete a Daily Run." },
     { id: "share",        name: "WORD OF MOUTH",      desc: "Share a result." },
@@ -468,8 +468,10 @@
     lines.push("ACED \u2014 " + section + " " + label);
     if (squares) lines.push(squares);
     var meta = [];
-    if (opts.readiness != null) meta.push("Readiness " + Math.round(opts.readiness) + "%");
-    if (opts.calib) meta.push("Calibration " + opts.calib);
+    var progress=Object.getOwnPropertyDescriptor(opts,"readiness");
+    if(progress)meta.push(Object.prototype.hasOwnProperty.call(progress,"value")&&typeof progress.value==="number"&&isFinite(progress.value)?
+      "GAME PROGRESS "+Math.round(progress.value)+"%":"Game progress not available.");
+    if (opts.calib) meta.push("CONFIDENCE BETS " + opts.calib);
     if (opts.streak) meta.push("\uD83D\uDD25 " + opts.streak + "-day");
     if (meta.length) lines.push(meta.join(" \u00b7 "));
     if (opts.score != null) lines.push("Score " + Number(opts.score).toLocaleString());

@@ -51,7 +51,7 @@ var logs = [];
 function env(hash, mem, opts) {
   opts = opts || {};
   mem = mem || {};
-  var replaced = [], coreCalls = [], fetches = [];
+  var replaced = [], coreCalls = [], fetches = [], toasts = 0, toastMessages = [];
   var storage = {
     getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
     setItem: function (k, v) { mem[k] = String(v); },
@@ -63,7 +63,7 @@ function env(hash, mem, opts) {
     sync: {
       isEnabled: function () { return !!be.endpoint; },
       push: function () { coreCalls.push("push"); return Promise.resolve({}); },
-      pull: function () { coreCalls.push("pull"); return Promise.resolve({ applied: false }); }
+      pull: function () { coreCalls.push("pull"); return Promise.resolve(opts.syncResult || { applied: false }); }
     }
   };
   var server = opts.server || {};
@@ -78,13 +78,17 @@ function env(hash, mem, opts) {
     return Promise.resolve({ status: out.status, json: function () { return Promise.resolve(out.body || {}); } });
   };
   global.window = { localStorage: storage, ACED_API_URL: API, crypto: require("crypto").webcrypto, ACEDCore: core };
+  if (opts.fx) {
+    global.ACEDFX = global.window.ACEDFX = { toast: function (message) { toasts++; toastMessages.push(message); }, palette: { cyan: "fixture" } };
+  } else { delete global.ACEDFX; }
   global.ACEDCore = core;
   global.location = { hash: hash || "", search: opts.search || "", pathname: "/", href: "https://app.example.test/" + (hash || "") };
   global.history = { replaceState: function (a, b, url) { replaced.push(url); global.location.hash = ""; } };
   global.document = fakeDocument();
   delete require.cache[modPath];
   require("./aced-account.js");
-  return { mem: mem, replaced: replaced, coreCalls: coreCalls, fetches: fetches, doc: global.document, A: global.window.ACEDAccount };
+  return { mem: mem, replaced: replaced, coreCalls: coreCalls, fetches: fetches, doc: global.document, A: global.window.ACEDAccount,
+    toastCount: function () { return toasts; }, toastMessages: toastMessages };
 }
 function byId(e, id) { return e.doc._find(function (n) { return n.id === id; }); }
 function settle() { return new Promise(function (r) { setTimeout(r, 0); }); }
@@ -282,6 +286,22 @@ test("same account signing in again keeps syncing", function () {
   return e.A.ready().then(function () { assert.deepStrictEqual(e.coreCalls, ["configure", "push", "pull"]); });
 });
 
+test("bounded held review pull never triggers the existing success toast", async function () {
+  for (var reason of ["review-state-held", "review-serialization-failed", "review-storage-unavailable"]) {
+    var e = env("", { aced_session: SESSION_A, aced_sync_owner: "acct-a" },
+      { fx: true, syncResult: { applied: false, reason: reason } });
+    await e.A.ready();
+    assert.deepStrictEqual(e.coreCalls, ["configure", "push", "pull"]);
+    assert.strictEqual(e.toastCount(), 0);
+  }
+});
+
+test("accepted pull retains the existing conditional success toast", function () {
+  var e = env("", { aced_session: SESSION_A, aced_sync_owner: "acct-a" },
+    { fx: true, syncResult: { applied: true, keys: 1 } });
+  return e.A.ready().then(function () { assert.strictEqual(e.toastCount(), 1); });
+});
+
 test("a different account never receives or overwrites another account's local progress", function () {
   var mem = { aced_session: SESSION_B, aced_sync_owner: "acct-a", "aced:world-capitals:review": "{\"q\":1}" };
   var e = env("", mem);
@@ -320,6 +340,55 @@ test("sign-out then a different account: still held (owner survives sign-out)", 
 });
 
 /* ---------- anonymous play and privacy ---------- */
+test("same-page held sign-out confirmed original owner clears only allowed reporting state", async function () {
+  for (var target of [SESSION_A, SESSION_B, null]) {
+    var raw = "{\"retained\":1}";
+    var e = env("", { aced_session: SESSION_B, aced_sync_owner: "acct-a", "aced:world-capitals:review": raw },
+      { fx: true, syncResult: { applied: true }, server: {
+        "/auth/request": { status: 200, body: { devLink: "https://app.example.test/#signin=" + CODE } },
+        "/auth/redeem": target ? okRedeem(target) : REFUSED
+      } });
+    assert.strictEqual(e.A.syncHeld(), true);
+    var configuredHeld = [], configure = global.ACEDCore.backend.configure;
+    global.ACEDCore.backend.configure = function (c) {
+      if (c && c.endpoint) configuredHeld.push(e.A.syncHeld());
+      return configure(c);
+    };
+    await e.A.signOut();
+    assert.strictEqual(e.A.syncHeld(), true, "sign-out alone never clears reporting hold");
+    var href = global.location.href;
+    Object.defineProperty(global.location, "href", { configurable: true,
+      get: function () { return href; }, set: function (value) { href = value; global.location.hash = new URL(value).hash; } });
+    await e.A.signIn(EMAIL);
+    assert.strictEqual(e.A.signInPending(), true);
+    assert.strictEqual(e.A.syncHeld(), true, "pending guard cannot clear hold");
+    await e.A.confirmSignIn(); await e.A.ready();
+    assert.strictEqual(e.mem.aced_sync_owner, "acct-a");
+    assert.strictEqual(e.mem["aced:world-capitals:review"], raw);
+    assert.deepStrictEqual(e.coreCalls, target === SESSION_A ? ["reset","configure","push","pull"] : ["reset"]);
+    assert.deepStrictEqual(configuredHeld, target === SESSION_A ? [false] : []);
+    assert.strictEqual(e.A.syncHeld(), target !== SESSION_A);
+    assert.deepStrictEqual(e.toastMessages, target === SESSION_A ? ["Server response applied on this page."] : []);
+    var currentCore = global.ACEDCore;
+    var ui = require("./tools/lib/runtime-fixture").createRuntime({ configureContext: function (c) {
+      c.ACED_API_URL = API; c.ACEDAccount = e.A; c.ACEDCore = currentCore;
+    } });
+    // The unchanged full engine has its own boot pull. Measure modal rendering
+    // after boot rather than misattributing that preexisting call to the UI.
+    var beforeCalls = e.coreCalls.length, beforeFetches = e.fetches.length;
+    ui.api.openAcctModal();
+    if (target) {
+      assert.ok(ui.modal().includes('id="acctStatus"'), "actual study account status exists");
+      assert.strictEqual(ui.document.getElementById("acctSync").disabled, target !== SESSION_A);
+    } else {
+      assert.ok(ui.modal().includes("Sign in to an account. Progress sync depends on availability."));
+      assert.ok(!ui.modal().includes('id="acctSync"'), "signed-out surface offers no manual sync");
+    }
+    assert.strictEqual(e.coreCalls.length, beforeCalls, "rendering does not configure or request");
+    assert.strictEqual(e.fetches.length, beforeFetches);
+  }
+});
+
 test("anonymous page load: no network, no sync, no notices", function () {
   var e = env("", {});
   return settle().then(function () {

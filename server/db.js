@@ -125,10 +125,11 @@ function makePg() {
   // Checked BEFORE the driver is loaded, so a refused configuration never opens a connection.
   const tls = pgSslConfig(process.env);
   if (tls.warning) console.warn(tls.warning);
-  const { Pool } = require("pg");
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: tls.ssl
+  const { createPgPool } = require("./db-tls-transport");
+  const pool = createPgPool({
+    connectionString: tls.connectionString,
+    ssl: tls.ssl,
+    production: tls.production
   });
   const q = (text, params) => pool.query(text, params);
   return {

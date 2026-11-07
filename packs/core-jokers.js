@@ -73,7 +73,7 @@ var DOCTRINES=[
   // ============================ RARE — engines & \u00d7Mult ============================
   {id:"snowball",     rarity:"rare", n:"Snowball",         d:"Permanently gains \u00d70.05 Mult each time you play a 3+ card hand.", apply:(c,j)=>{var s=c.st(j.id);if(c.played.filter(x=>!x.weakness).length>=3)s.x=(s.x||1)+0.05;if((s.x||1)>1)c.xMult(s.x,"Snowball \u00d7"+s.x.toFixed(2));}},
   {id:"consistency",  rarity:"rare", n:"Rote Learning",    d:"\u00d7Mult grows +0.35 each hand you repeat the same combo. Switching resets it.", apply:(c,j)=>{var s=c.st(j.id);if(s.last===c.hand.name){s.x=(s.x||1)+0.35;}else{s.x=1;s.last=c.hand.name;}if(s.x>1)c.xMult(s.x,"Rote \u00d7"+s.x.toFixed(2));}},
-  {id:"secondnature", rarity:"rare", n:"Second Nature",    d:"\u00d7Mult = 1 + 0.15 per topic you've mastered (50%+).",   apply:c=>{if(c.masteredCount>0)c.xMult(1+0.15*c.masteredCount,"Second Nature \u00d7"+(1+0.15*c.masteredCount).toFixed(2));}},
+  {id:"secondnature", rarity:"rare", n:"Second Nature",    d:"×Mult = 1 + 0.15 per topic at 50%+ game progress.",   apply:c=>{if(c.masteredCount>0)c.xMult(1+0.15*c.masteredCount,"Second Nature \u00d7"+(1+0.15*c.masteredCount).toFixed(2));}},
   {id:"bigpicture",   rarity:"rare", n:"Big Picture",      d:"\u00d7Mult = 1 + 0.04 per point of total Conviction you hold.", apply:c=>{if(c.convTotal>0)c.xMult(1+0.04*c.convTotal,"Big Picture \u00d7"+(1+0.04*c.convTotal).toFixed(2));}},
   {id:"perfectrecall",rarity:"rare", n:"Perfect Recall",   d:"\u00d72.5 Mult while your deck has no dead cards.",         apply:c=>{if((c.weaknessCount||0)===0)c.xMult(2.5,"Perfect Recall \u00d72.5");}},
   {id:"hailmary",     rarity:"rare", n:"Hail Mary",        d:"If your deck holds 2+ dead cards: \u00d73 Mult. Embrace the chaos.", apply:c=>{if((c.weaknessCount||0)>=2)c.xMult(3,"Hail Mary \u00d73");}},
@@ -176,7 +176,7 @@ var HINTS={
   deferred:"Play a couple of hands in a round.", mnemonic:"Pass a Pop Quiz, then play that topic.",
   officehours:"Pass a Pop Quiz.", redemption:"Get right a question you'd missed.",
   snowball:"Play several hands in a round.", consistency:"Repeat a combo across hands.",
-  secondnature:"Master any topic to 50%.", bigpicture:"Earn Conviction by passing Pop Quizzes.",
+  secondnature:"Reach 50% game progress in any topic.", bigpicture:"Earn Conviction by passing Pop Quizzes.",
   perfectrecall:"Score a big hand with a spotless deck.", hailmary:"Carry 2+ dead cards.",
   panic:"Reach the second stage of a run.", highroller:"Hold $30 at once.",
   diminishing:"Reach the second stage of a run.", thinnotes:"Trim your deck below 48 cards.",

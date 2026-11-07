@@ -1,5 +1,6 @@
 /* Canonical question-ID identity + review migration tests (Copilot part 2, item 8). Run: node aced-core.test.js */
 "use strict";
+require("./tools/lib/question-id-integrity-tests")("core");
 var assert = require("assert");
 var _mem = {};
 global.localStorage = { getItem: function (k) { return k in _mem ? _mem[k] : null; }, setItem: function (k, v) { _mem[k] = String(v); }, removeItem: function (k) { delete _mem[k]; } };
@@ -51,6 +52,200 @@ assert.ok(Object.prototype.hasOwnProperty.call(C.store.get("calib", {}).byModule
 assert.strictEqual({}.n, undefined, "authored topic names must not mutate Object.prototype");
 assert.ok(Number.isFinite(C.calibration.summary().accuracy));
 console.log("aced-core.test.js: authored-topic prototype safety passed");
+
+// ---- C04/C05: actual core API, isolated storage, deterministic clock, no network ----
+(function reviewScheduleTests() {
+  var fs = require("fs"), vm = require("vm");
+  var source = fs.readFileSync(__dirname + "/aced-core.js", "utf8");
+  var NOW = 1800000000000, DAY = 864e5;
+  function environment(pack, sharedDisk) {
+    var disk = sharedDisk || Object.create(null), now = NOW;
+    class ClockDate extends Date {
+      constructor(...args) { super(...(args.length ? args : [now])); }
+      static now() { return now; }
+    }
+    var context = {
+      window: { localStorage: {
+        getItem: function (key) { return Object.prototype.hasOwnProperty.call(disk, key) ? disk[key] : null; },
+        setItem: function (key, value) { disk[key] = String(value); },
+        removeItem: function (key) { delete disk[key]; }
+      } },
+      location: { search: "?pack=" + pack }, URLSearchParams: URLSearchParams,
+      Date: ClockDate,
+      fetch: function () { throw new Error("Network is forbidden in review tests"); }
+    };
+    vm.runInNewContext(source, context, { filename: "aced-core.js" });
+    return { core: context.window.ACEDCore, disk: disk, pack: pack,
+      time: function (value) { now = value; } };
+  }
+  function plain(value) { return JSON.parse(JSON.stringify(value)); }
+  function question(id) { return { id: id, source: "Topic", q: "Fixture " + id }; }
+  function record(extra) { return Object.assign({ seen: 3, miss: 0, ok: 3, box: 3, last: NOW - DAY, src: "Topic" }, extra); }
+  function ids(core, bank, limit) { return Array.from(core.review.queue(bank, limit), function (q) { return q.id; }); }
+  var env = environment("schedule-fixture"), core = env.core, due = NOW + 100;
+  var mature = question("mature"), recovered = question("recovered"), weak = question("weak"), untouched = question("untouched");
+  var records = {
+    mature: record({ dueAt: due, intervalDays: 7, lastReviewedAt: NOW - DAY }),
+    recovered: record({ miss: 1, ok: 2, box: 2, dueAt: due }),
+    weak: record({ miss: 3, ok: 0, box: 0, dueAt: due })
+  };
+  core.store.set("review", records);
+  var before = env.disk["aced:schedule-fixture:review"], bank = [mature, recovered, weak, untouched];
+  env.time(due - 1);
+  assert.deepStrictEqual(ids(core, bank, 10), [], "future weak and nonweak cards do not return early");
+  assert.strictEqual(core.review.count(), 0);
+  assert.strictEqual(core.review.isWeak(weak), true);
+  assert.strictEqual(core.review.isWeak(mature), false);
+  assert.strictEqual(core.review.isWeak(recovered), false, "due eligibility does not redefine recovered cards as weak");
+  [due, due + 1].forEach(function (time) {
+    env.time(time);
+    assert.deepStrictEqual(ids(core, bank, 10), ["weak", "recovered", "mature"], "at/after due uses unchanged rank arithmetic");
+    assert.strictEqual(core.review.count(), 3, "queue/count share the same eligibility predicate");
+    assert.deepStrictEqual(ids(core, bank, 1), ["weak"], "existing queue limit remains effective");
+  });
+  assert.strictEqual(env.disk["aced:schedule-fixture:review"], before, "visiting queue/count never rewrites records");
+  console.log("aced-core.test.js: C04 scheduled mature/recovered/weak boundaries, rank and limits passed");
+
+  env = environment("legacy-fixture"); core = env.core;
+  records = {
+    missingWeak: record({ miss: 3, ok: 0, box: 0 }),
+    zeroWeak: record({ miss: 3, ok: 0, box: 0, dueAt: 0 }),
+    missingStrong: record(),
+    zeroStrong: record({ dueAt: 0 })
+  };
+  var malformed = [null, -1, "1", "", false, true, {}, []];
+  malformed.forEach(function (value, i) { records["bad" + i] = record({ miss: 3, ok: 0, box: 0, dueAt: value }); });
+  core.store.set("review", records);
+  bank = Object.keys(records).map(question).concat([untouched]);
+  before = env.disk["aced:legacy-fixture:review"];
+  assert.deepStrictEqual(ids(core, bank, 30).sort(), ["missingWeak", "zeroWeak"]);
+  assert.strictEqual(core.review.count(), 2, "missing/zero schedules keep conservative weakness-only legacy behavior");
+  assert.strictEqual(env.disk["aced:legacy-fixture:review"], before, "invalid schedules remain untouched");
+  // JSON cannot represent NaN/Infinity; exercise the same public API with these
+  // in-memory values rather than accidentally testing JSON's conversion to null.
+  var realGet = core.store.get;
+  [NaN, Infinity, -Infinity].forEach(function (value) {
+    core.store.get = function (key, fallback) {
+      return key === "review" ? { invalid: record({ miss: 3, ok: 0, box: 0, dueAt: value }) } : realGet(key, fallback);
+    };
+    assert.deepStrictEqual(ids(core, [question("invalid")], 10), []);
+    assert.strictEqual(core.review.count(), 0, "nonfinite schedules are excluded without coercion");
+  });
+  core.store.get = realGet;
+  console.log("aced-core.test.js: C04 legacy, malformed/nonfinite and untouched-record cases passed");
+
+  env = environment("record-fixture"); core = env.core;
+  var answered = question("answered");
+  [1, 3, 7, 14, 30, 30].forEach(function (days, i) {
+    env.time(NOW + i);
+    core.review.record(answered, true);
+    var saved = plain(core.store.get("review", {})[answered.id]);
+    assert.deepStrictEqual(saved, { seen: i + 1, miss: 0, ok: i + 1, box: Math.min(5, i + 1),
+      last: NOW + i, src: "Topic", lastReviewedAt: NOW + i, intervalDays: days, dueAt: NOW + i + days * DAY });
+  });
+  env.time(NOW + 10); core.review.record(answered, false);
+  var missed = plain(core.store.get("review", {})[answered.id]);
+  assert.deepStrictEqual(missed, { seen: 7, miss: 1, ok: 6, box: 0, last: NOW + 10,
+    src: "Topic", lastReviewedAt: NOW + 10, intervalDays: 0, dueAt: NOW + 10 + 6e5, lapses: 1 });
+  env.time(missed.dueAt - 1); assert.strictEqual(core.review.count(), 0);
+  env.time(missed.dueAt); assert.deepStrictEqual(ids(core, [answered], 10), ["answered"]);
+  core.review.record(answered, false);
+  assert.strictEqual(core.store.get("review", {})[answered.id].lapses, 2, "real misses still increment lapses once");
+  console.log("aced-core.test.js: C04 existing recording/cadence/counters and ten-minute miss delay passed");
+
+  function collision(name, canonical, legacy, expected) {
+    var disk = Object.create(null), a = environment("migration-a", disk), b = environment("migration-b", disk);
+    var q = question("stable-" + name), alias = a.core.legacyQKey(q);
+    var unrelated = record({ dueAt: NOW + 9000, intervalDays: 3, lapses: 8 });
+    var values = { unrelated: unrelated }; values[q.id] = canonical; values[alias] = legacy;
+    a.core.store.set("review", values);
+    b.core.store.set("review", { other: record({ dueAt: NOW + 7000 }) });
+    var otherBytes = disk["aced:migration-b:review"];
+    var result = a.core.review.migrateIds([q]), migrated = plain(a.core.store.get("review", {}));
+    assert.strictEqual(result.migrated, 1, name);
+    assert.deepStrictEqual(migrated[q.id], expected, name + ": complete collision result");
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(migrated, alias), false, name + ": legacy alias deleted");
+    assert.deepStrictEqual(migrated.unrelated, unrelated, name + ": unrelated record preserved");
+    assert.strictEqual(disk["aced:migration-b:review"], otherBytes, name + ": other pack untouched");
+    var migratedBytes = disk["aced:migration-a:review"];
+    assert.strictEqual(a.core.review.migrateIds([q]).migrated, 0, name + ": repeated migration is idempotent");
+    assert.strictEqual(disk["aced:migration-a:review"], migratedBytes, name + ": history not duplicated on second migration");
+    return { core: a.core, q: q };
+  }
+  var canonical = record({ seen: 9, miss: 5, ok: 4, box: 9, last: 200, src: "Canonical",
+    dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 2 });
+  var legacy = record({ seen: 7, miss: 6, ok: 1, box: -2, last: 100, src: "Legacy",
+    dueAt: NOW + 1000, intervalDays: 1, lastReviewedAt: 90, lapses: 6 });
+  collision("canonical-newer", canonical, legacy, { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+    dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 6 });
+  collision("legacy-newer", Object.assign({}, canonical, { last: 100 }), Object.assign({}, legacy, { last: 300 }),
+    { seen: 9, miss: 6, ok: 4, box: 0, last: 300, src: "Legacy",
+      dueAt: NOW + 1000, intervalDays: 1, lastReviewedAt: 90, lapses: 6 });
+  collision("canonical-tie", canonical, Object.assign({}, legacy, { last: 200 }),
+    { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+      dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 6 });
+  var historical = record({ seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: null });
+  [undefined, 0].forEach(function (dueAt, i) {
+    var winner = Object.assign({}, historical);
+    if (dueAt !== undefined) winner.dueAt = dueAt;
+    collision("legacy-fallback-" + i, winner, legacy, { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy",
+      dueAt: NOW + 1000, intervalDays: 1, lastReviewedAt: 90, lapses: 6 });
+    collision("canonical-fallback-" + i, Object.assign({}, legacy, { src: "Canonical" }), winner,
+      { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Canonical",
+        dueAt: NOW + 1000, intervalDays: 1, lastReviewedAt: 90, lapses: 6 });
+  });
+  malformed.forEach(function (value, i) {
+    var invalidWinner = Object.assign({}, historical, { dueAt: value, intervalDays: 4, lastReviewedAt: 499, lapses: -1 });
+    var migrated = collision("invalid-winner-" + i, invalidWinner, legacy,
+      { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy",
+        dueAt: value, intervalDays: 4, lastReviewedAt: 499, lapses: 6 });
+    assert.strictEqual(migrated.core.review.count(), 0, "malformed winner must not fall back into immediately-due legacy eligibility");
+    assert.deepStrictEqual(ids(migrated.core, [migrated.q], 10), []);
+  });
+  collision("partial-valid-winner", Object.assign({}, historical, { dueAt: NOW + 5000 }), legacy,
+    { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy", dueAt: NOW + 5000, lapses: 6 });
+  collision("both-historical", Object.assign({}, historical, { lapses: "9" }), record({ last: 100, lapses: -1 }),
+    { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Topic" });
+  collision("no-invalid-bundle-fallback", historical, Object.assign({}, legacy, { intervalDays: "1", lapses: 0 }),
+    { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy", lapses: 0 });
+  ["intervalDays", "lastReviewedAt"].forEach(function (key) {
+    [null, -1, "1", false, {}, []].forEach(function (value, i) {
+      var badBundle = Object.assign({}, legacy); badBundle[key] = value;
+      collision("invalid-fallback-" + key + "-" + i, historical, badBundle,
+        { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy", lapses: 6 });
+      var winningBundle = Object.assign({}, canonical); winningBundle[key] = value;
+      var expected = { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+        dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 6 };
+      expected[key] = value;
+      collision("invalid-winner-" + key + "-" + i, winningBundle, legacy, expected);
+    });
+  });
+  collision("fallback-without-optional-fields", historical, record({ last: 100, dueAt: NOW + 8000 }),
+    { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Topic", dueAt: NOW + 8000 });
+  collision("zero-optional-fields", historical, Object.assign({}, legacy, { intervalDays: 0, lastReviewedAt: 0 }),
+    { seen: 10, miss: 7, ok: 3, box: 1, last: 500, src: "Legacy",
+      dueAt: NOW + 1000, intervalDays: 0, lastReviewedAt: 0, lapses: 6 });
+  collision("invalid-canonical-tie", Object.assign({}, canonical, { dueAt: "0" }), Object.assign({}, legacy, { last: 200 }),
+    { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+      dueAt: "0", intervalDays: 14, lastReviewedAt: 190, lapses: 6 });
+  collision("only-canonical-valid-lapses", Object.assign({}, canonical, { lapses: 8 }), Object.assign({}, legacy, { lapses: "99" }),
+    { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+      dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 8 });
+  collision("zero-lapses", Object.assign({}, canonical, { lapses: 0 }), Object.assign({}, legacy, { lapses: -1 }),
+    { seen: 9, miss: 6, ok: 4, box: 5, last: 200, src: "Canonical",
+      dueAt: NOW + 9000, intervalDays: 14, lastReviewedAt: 190, lapses: 0 });
+  // A plain alias move keeps all original fields; only collisions merge histories.
+  var simple = environment("simple-migration"), simpleQ = question("stable-simple"), simpleValues = {};
+  simpleValues[simple.core.legacyQKey(simpleQ)] = canonical;
+  simple.core.store.set("review", simpleValues);
+  simple.core.review.migrateIds([simpleQ]);
+  assert.deepStrictEqual(plain(simple.core.store.get("review", {})[simpleQ.id]), canonical);
+  console.log("aced-core.test.js: C05 migration ordering/ties/coherent fallback/invalid schedules/lapses/pack isolation/idempotency passed");
+})();
+require("./tools/lib/question-id-inbound-tests")().catch(function () {
+  console.error("question-ID inbound desired invariant failed");
+  process.exitCode = 1;
+});
 
 // ---- Cross-pack sync containment (audit G1) ----
 // A signed-in pull must ask the server for THIS page's pack and must never apply another

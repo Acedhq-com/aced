@@ -25,6 +25,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css">
 <style>
+  .recording-status{box-sizing:border-box;min-width:0;margin:12px 0;padding:12px;border:1px solid #7fae90;background:#0e1a0d;color:#d8f5d8;font-size:18px;line-height:1.4;text-align:left;overflow-wrap:anywhere}
+  .recording-status p{margin:0 0 8px}.recording-status p:last-child{margin-bottom:0}
+  .shopbar.recording-foot{display:block}.account-actions .act{min-height:44px;max-width:100%;white-space:normal}
+  .recording-live{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   :root{--bg:#0a0e07;--bg2:#0d1409;--panel:#0e1a0d;--panel2:#13230f;--green:#22ff66;--green-dim:#0fa84a;--amber:#ffb627;--red:#ff5238;--cyan:#5cffea;--magenta:#ff5cb8;--white:#d8f5d8;--grey:#5a7058;--border:#1a2e15;--gold:#ffd23f;--money:#9be36b;
     --rev:#5cffea;--exp:#ff8a5c;--asset:#7dff9e;--liab:#ff5cb8;--equity:#ffd23f;}
   html,body{margin:0;padding:0;background:#000;color:var(--green);font-family:'VT323',ui-monospace,monospace;font-size:20px;line-height:1.2;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
@@ -866,6 +870,81 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
 @media (prefers-reduced-motion:reduce){.card.deal,.packreveal .shopitem.packopt{animation-duration:.01s}.card[data-finish]:not([data-finish=""])::after{animation:none}}
 </style>
 
+<style id="aced-product-success-layout">
+.topbar .tbtn,.topbar .rankpill,.sidebar .ribtn,.actions .act{min-width:44px;min-height:44px;box-sizing:border-box}
+/* Scoped presentation only. Preserve every control and the normal page flow. */
+.readiness .rtop{min-height:44px;gap:8px;flex-wrap:wrap}
+.readiness [hidden]{display:none!important}
+.readiness .rpct{font-family:'VT323',monospace;font-size:18px;line-height:1.15}
+.readiness .rgate{flex-wrap:wrap;gap:6px}
+.readiness #gateMock{font:inherit;color:#d8f5d8;background:#10251b;border:1px solid #638b76;min-height:44px;padding:6px 9px;white-space:normal;line-height:1.2;cursor:pointer}
+.readiness #gateMock:disabled{color:#d8f5d8;opacity:1;cursor:default}
+.readiness .coverage,.readiness .calib,.progress-scope{color:#d8f5d8;font:16px/1.25 'VT323',monospace;overflow-wrap:anywhere}
+.progress-scope summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+.progress-scope p{margin:0 0 8px}
+.topbar #deckBtn,.topbar #notesBtn,.topbar #acctBtn,.topbar #mute,.sidebar .blind .bk,.sidebar .rscore .rsk,.sidebar .handline .ht,.sidebar .ctk,#hand .card .modk,.playarea #phLabel,.playarea .ph,.actions .sortlbl{color:#d8f5d8}
+.sidebar #runInfoBtn,.actions #play,.actions #discard,#modal button.act.play,#modal button.act.disc{color:#07120b!important;text-shadow:none!important}
+.sidebar .readout .ro-hint,.sidebar .readout .ro-eq,.sidebar .readout .ro-prev,.cardtip:where(#cardTip) .ctcat{color:#d8f5d8}
+.sidebar .readout .ro-chips,.sidebar .readout .ro-mult{color:#07120b!important;text-shadow:none!important}
+.mastery #mToggle{box-sizing:border-box;min-width:44px;min-height:44px;color:#d8f5d8;font:14px/1.1 'VT323',monospace}
+#modal button.act{box-sizing:border-box;min-width:44px;min-height:44px}
+.mastery #mToggle:focus-visible,#modal button.act:focus-visible{outline:3px solid #5cffea;outline-offset:3px}
+#rTop:focus-visible,#gateMock:focus-visible,.progress-scope summary:focus-visible,.aced-arcade-banner a:focus-visible,.aced-arcade-banner button:focus-visible{outline:3px solid #5cffea;outline-offset:3px}
+.aced-arcade-banner{max-width:1020px;box-sizing:border-box;margin:16px auto;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#0a160a;border:1px solid #ffb627;color:#ffcf78;font:18px/1.25 'VT323',monospace;overflow-wrap:anywhere}
+.aced-arcade-banner a{color:#5cffea;min-height:44px;display:inline-flex;align-items:center;text-decoration:underline;text-underline-offset:3px}
+.aced-arcade-banner button{margin-left:auto;background:#10251b;border:1px solid #638b76;color:#d8f5d8;min-width:44px;min-height:44px;font:24px monospace;cursor:pointer}
+@media(max-width:480px){
+  .wrap{padding:6px 8px 20px}
+  .topbar{flex-wrap:wrap;gap:3px;padding-top:0;padding-bottom:3px;margin-bottom:4px}
+  .topbar .logo{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:20px}
+  .topbar .logo .sub{display:inline;margin:0;font:16px/1.1 'VT323',monospace;letter-spacing:0}
+  .topbar .tbtns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;width:100%}
+  .topbar .tbtn,.topbar .rankpill{min-height:44px;min-width:44px;box-sizing:border-box;padding:4px!important;font-family:'VT323',monospace!important;font-size:16px!important;letter-spacing:0;line-height:1.1;white-space:normal;overflow-wrap:anywhere}
+  .readiness{display:grid;grid-template-columns:minmax(0,2.4fr) repeat(2,minmax(0,1fr));gap:3px 6px;padding:5px 8px;margin-bottom:6px}
+  .readiness .rtop{grid-column:1;grid-row:1;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;margin:0;min-width:0}
+  .readiness .rlbl{font-size:8px;letter-spacing:0}.readiness .rpct{font-size:16px;max-width:100%}
+  .readiness .rgate{grid-column:2;grid-row:1;align-self:center;margin:0;min-width:0}
+  .readiness #gateMock{box-sizing:border-box;width:100%;font-size:14px;padding:4px 3px}
+  .readiness .rbar,.readiness .coverage,.readiness .calib{grid-column:1/-1;min-width:0}
+  .readiness .progress-scope{grid-column:3;grid-row:1;min-width:0}
+  .readiness .progress-scope[open]{grid-column:1/-1;grid-row:2}
+  .readiness .coverage{font-size:14px;margin-top:2px}
+  .progress-scope{font-size:14px}.progress-scope summary{font-size:13px}
+  .gamegrid{gap:5px!important;margin-bottom:5px}
+  .sidebar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"blind blind score score score" "blind blind handline handline handline" "blind blind readout readout readout" "counters counters counters counters info";gap:4px!important;position:static!important}
+  .sidebar .blind{grid-area:blind}.sidebar .rscore{grid-area:score;padding:4px 6px!important}
+  .sidebar .handline{grid-area:handline;padding:4px!important;min-height:0}
+  .sidebar .readout{grid-area:readout;box-sizing:border-box;min-height:36px!important;padding:4px!important;gap:3px}
+  .sidebar .readout .ro-hint{font-size:13px}
+  .sidebar .rscore .rsk{font-size:6px}.sidebar .rscore .rsv{font-size:14px}
+  .sidebar .blind .name{font-size:8px!important;line-height:1.4;padding:6px!important;overflow-wrap:anywhere}
+  .sidebar .bgoal{padding:7px 4px 2px!important}.sidebar .bgoal .bv{font-size:20px!important}
+  .sidebar .brew{padding-bottom:5px!important}.sidebar .deb{font-size:13px}
+  .sidebar .counters{grid-area:counters;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px!important}
+  .sidebar .ct{padding:4px 2px!important;min-height:44px;box-sizing:border-box;min-width:0}
+  .sidebar .ctk{font-size:6px!important;letter-spacing:0!important;overflow-wrap:anywhere;margin-bottom:2px}
+  .sidebar .ctv{font-size:12px!important}.sidebar .ribtn{grid-area:info;min-height:44px;min-width:44px;box-sizing:border-box;padding:4px!important;margin:0;font:16px/1.1 'VT323',monospace;letter-spacing:0}
+  .stage{gap:5px}
+  .playarea{padding:5px;margin-bottom:3px}.playarea .ph{margin-bottom:5px}
+  #hand{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;min-height:0}
+  #hand .card{box-sizing:border-box;width:100%;min-width:0;min-height:100px;padding:5px;overflow-wrap:anywhere}
+  #hand .card .cn{font-size:15px;line-height:1.1}#hand .card .modk{font-size:12px;letter-spacing:0}
+  #hand .card .el{font-size:6px;letter-spacing:0}#hand .card .cv{font-size:12px}
+  #hand .card.sel{transform:translateY(-4px)!important}
+  .actions{flex-wrap:wrap;gap:5px;margin:3px 0}.actions .act{min-height:44px;padding:9px!important;flex:1}
+  .actions .sortgrp{gap:4px;flex-wrap:wrap}.actions .sortlbl{font-size:11px}
+  .aced-arcade-banner{margin:12px 8px}
+}
+@media(max-width:380px){
+  .topbar .tbtns{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .readiness{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readiness .rtop{grid-column:1/-1;grid-row:1}
+  .readiness .rgate{grid-column:1;grid-row:2}
+  .readiness .progress-scope{grid-column:2;grid-row:2}
+  .readiness .progress-scope[open]{grid-column:1/-1;grid-row:3}
+  #hand{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+</style>
 </head>
 <body>
 <script src="aced-library.js"></script>
@@ -900,7 +979,7 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     });
     const topics=[]; norm.forEach(q=>{ if(topics.indexOf(q.source)<0)topics.push(q.source); });
     if(!topics.length)topics.push('General');
-    const modules={}; topics.forEach(t=>{ modules[t]=t; });
+    const modules=Object.create(null); topics.forEach(t=>{ modules[t]=t; });
     const SUITS=[{k:'BLUE',label:'Blue',color:'#5cffea'},{k:'GREEN',label:'Green',color:'#7dff9e'},{k:'GOLD',label:'Gold',color:'#ffd23f'},{k:'PINK',label:'Pink',color:'#ff5cb8'}];
     const elements={}; SUITS.forEach(s=>{ elements[s.k]={label:s.label,color:s.color}; });
     const D=Math.max(28,Math.min(52,topics.length*4));
@@ -960,6 +1039,36 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     return;
   }
 
+  let publicComplete=false, publicSettled=false, removePublicReady=null;
+  function releasePublicReady(){
+    const remove=removePublicReady; removePublicReady=null;
+    if(remove)try{ Reflect.apply(remove,document,['DOMContentLoaded',deliverPublicReady]); }catch(e){}
+  }
+  function deliverPublicReady(){
+    if(publicSettled||!publicComplete)return;
+    let state;
+    try{ state=document.readyState; }catch(e){ publicSettled=true;releasePublicReady();return; }
+    if(state==='loading'){
+      if(removePublicReady)return;
+      try{
+        const add=document.addEventListener, remove=document.removeEventListener;
+        if(typeof add==='function'&&typeof remove==='function'){
+          removePublicReady=remove;
+          Reflect.apply(add,document,['DOMContentLoaded',deliverPublicReady]);
+          return;
+        }
+      }catch(e){}
+      publicSettled=true;releasePublicReady();return;
+    }
+    publicSettled=true;releasePublicReady();
+    if(state!=='interactive'&&state!=='complete')return;
+    let callback;
+    try{
+      const d=Object.getOwnPropertyDescriptor(window,'_packReady');
+      if(d&&Object.prototype.hasOwnProperty.call(d,'value')&&typeof d.value==='function')callback=d.value;
+    }catch(e){return;}
+    if(callback)Reflect.apply(callback,window,[]);
+  }
   const packScript = document.createElement('script');
   packScript.src = 'packs/' + packId + '.js';
   packScript.onerror = () => {
@@ -972,7 +1081,7 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     const banks = [].concat(P.scripts || [], P.questionBanks || []);
     let i = 0;
     function next() {
-      if (i >= banks.length) { window._packReady && window._packReady(); return; }
+      if (i >= banks.length) { publicComplete=true;deliverPublicReady(); return; }
       const s = document.createElement('script');
       s.src = banks[i++];
       s.onload = next;
@@ -1021,13 +1130,14 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
 <script src="packs/core-jokers.js"></script>
 <div class="wrap" id="game" style="display:none">
   <div class="topbar"><div class="logo">ACED<span class="sub" id="packLabel">// STUDY MODE</span></div>
-    <div class="tbtns"><button class="rankpill" id="rankPill" title="Your career rank & today's objectives" style="display:none"></button><span class="streakbadge" id="streakBadge" title="Your daily streak"><span class="fire">&#128293;</span> <span id="streakNum">0</span></span><a class="tbtn daily" id="dailyLink" href="daily.html" title="Today’s Daily Challenge">DAILY</a><button class="tbtn review" id="reviewBtn" title="Review questions you've missed">REVIEW</button><button class="tbtn tbs" id="tbsBtn" title="Skill drills">DRILLS</button><button class="tbtn hands" id="handsBtn" title="What each hand scores">HANDS</button><button class="tbtn help-btn" id="helpBtn" title="How to play">? HELP</button><button class="tbtn" id="deckBtn">DECK</button><button class="tbtn codex" id="codexBtn">CODEX</button><button class="tbtn" id="notesBtn" title="Browse every question's explanation">NOTES</button><button class="tbtn unlock" id="unlockBtn" title="Unlock the Mock Test and full simulation library" style="display:none">&#128274; UNLOCK FULL ACCESS</button><button class="tbtn acct" id="acctBtn" title="Sign in to sync across devices" style="display:none">SIGN IN</button><button class="tbtn" id="mute">SOUND: ON</button><button class="tbtn endrun" id="endRunBtn" title="End this run — your readiness is saved">END RUN</button></div></div>
+    <div class="tbtns"><button class="rankpill" id="rankPill" title="Your career rank & today's objectives" style="display:none"></button><span class="streakbadge" id="streakBadge" title="Your daily streak"><span class="fire">&#128293;</span> <span id="streakNum">0</span></span><a class="tbtn daily" id="dailyLink" href="daily.html" title="Today’s Daily Challenge">DAILY</a><button class="tbtn review" id="reviewBtn" title="Review questions you've missed">REVIEW</button><button class="tbtn tbs" id="tbsBtn" title="Skill drills">DRILLS</button><button class="tbtn hands" id="handsBtn" title="What each hand scores">HANDS</button><button class="tbtn help-btn" id="helpBtn" title="How to play">? HELP</button><button class="tbtn" id="deckBtn">DECK</button><button class="tbtn codex" id="codexBtn">CODEX</button><button class="tbtn" id="notesBtn" title="Browse every question's explanation">NOTES</button><button class="tbtn unlock" id="unlockBtn" title="Unlock the Mock Test and full simulation library" style="display:none">&#128274; UNLOCK FULL ACCESS</button><button class="tbtn acct" id="acctBtn" title="Sign in to sync across devices" style="display:none">SIGN IN</button><button class="tbtn" id="mute">SOUND: ON</button><button class="tbtn endrun" id="endRunBtn" title="End the current game run">END RUN</button></div></div>
   <div class="readiness" id="readiness">
-    <div class="rtop" id="rTop" title="Tap for your per-module readiness report" style="cursor:pointer"><div class="rlbl">READINESS<span style="font-family:'VT323';font-size:13px;color:var(--cyan);margin-left:8px">REPORT &#9656;</span></div><div class="rpct" id="rPct">0%</div></div>
-    <div class="rbar"><div class="rfill" id="rFill"></div></div>
-    <div class="rgate"><span id="gateMock" class="lk">&#128274; MOCK TEST (60%)</span><span id="gateReady" class="lk">&#128274; MASTERED (90%)</span></div>
+    <div class="rtop" id="rTop" role="button" tabindex="0" title="Open topic game progress report" style="cursor:pointer"><div class="rlbl">GAME PROGRESS<span style="font-family:'VT323';font-size:13px;color:var(--cyan);margin-left:8px">REPORT &#9656;</span></div><div class="rpct" id="rPct">Aggregate not available for this pack.</div></div>
+    <div class="rbar" id="progressBar" hidden><div class="rfill" id="rFill"></div></div>
+    <div class="rgate"><button type="button" id="gateMock" class="lk">PRACTICE QUESTIONS</button><span id="gateReady" class="lk" hidden>GAME MILESTONE (90%)</span></div>
     <div class="coverage" id="coverageRow"></div>
-    <div class="calib" id="calibRow" style="display:none">CALIBRATION<span class="cbar"><span class="cfill" id="calibFill"></span></span><span class="cpct" id="calibPct">—</span></div>
+    <details class="progress-scope"><summary>ABOUT GAME PROGRESS</summary><p>Game progress increases through cards, answers and game rewards. It is not a measure of recall or a prediction of test performance.</p></details>
+    <div class="calib" id="calibRow" style="display:none"><span class="cpct" id="calibPct"></span></div>
   </div>
   <div class="gamegrid">
     <aside class="sidebar">
@@ -1063,11 +1173,12 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
     </section>
   </div>
   <aside class="mastery" id="masteryPanel">
-    <h3>MASTERY<button class="mtoggle" id="mToggle">HIDE</button></h3>
-    <div class="mbody" id="masteryBody"><div class="mempty">Play hands to build mastery across your modules.</div></div>
+    <h3>TOPIC GAME PROGRESS<button class="mtoggle" id="mToggle">HIDE</button></h3>
+    <div class="mbody" id="masteryBody"><div class="mempty">Play hands to increase topic game progress.</div></div>
   </aside>
 </div>
 <div class="toast" id="toast"></div>
+<div class="recording-live" id="recordingStatusLive" role="status" aria-live="polite" aria-atomic="true"></div>
 <div class="callout" id="callout"></div>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 <!-- ===== TUTORIAL OVERLAY ===== -->
@@ -1108,6 +1219,9 @@ const PACK=window.ACED_PACK;
    Prevents (a) stored XSS from community/AI-generated packs, and (b) silent breakage when real
    textbook text contains <, >, &, ", or '. */
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
+// Authored topics are opaque own keys, including "__proto__" and "constructor".
+function ownValue(o,k,fallback){return Object.prototype.hasOwnProperty.call(o,k)?o[k]:fallback;}
+function setOwn(o,k,v){Object.defineProperty(o,k,{value:v,writable:true,enumerable:true,configurable:true});}
 if(!PACK){
   document.body.innerHTML='<div style="color:#ff5238;padding:40px;font-family:VT323,monospace;background:#000;height:100vh;font-size:22px">No pack loaded. Pick one from the <a style="color:#5cffea" href="library.html">library</a>.</div>';
   throw new Error('No pack');
@@ -1146,7 +1260,7 @@ const FINISH_KEYS=["certified","audited","consolidated"];
 // strategic layer instead of a static stamp.
 const TREATMENTS={
   accrued:   {tag:"SNOWBALLING", col:"#5cffea", d:"Effect grows +25% for each hand you've already played this round.", factor:c=>1+0.25*(c.handsThisBlind||0)},
-  accredited:{tag:"STUDIED",     col:"#ffd23f", d:"Effect scales with your average mastery \u2014 studying upgrades it.", factor:c=>1+((c._avgMastery||0)/100)},
+  accredited:{tag:"PROGRESS",    col:"#ffd23f", d:"Effect scales with average topic game progress.", factor:c=>1+((c._avgMastery||0)/100)},
   syndicated:{tag:"SHARED",      col:"#b98cff", d:"+15% effect for every OTHER joker you own \u2014 rewards a wide board.", factor:c=>1+0.15*Math.max(0,(c.jokerCount||1)-1)},
   marked:    {tag:"VOLATILE",    col:"#ff5cb8", d:"\u00d72.5 effect \u2014 but 1 hand in 4 it fizzles to nothing.", factor:c=>Math.random()<0.25?0:2.5},
   attested:  {tag:"PROVEN",      col:"#22ff66", d:"Doubles its effect on any round after you aced your last Pop Quiz.", factor:c=>c.passedLastAudit?2:1},
@@ -1162,7 +1276,7 @@ function treatNote(key){ const t=TREATMENTS[key]; return t?(" — "+t.tag+": "+t
 // v11.1: one-line strategy tips shown in the Codex so players learn Treatments before seeing one.
 const TREATMENT_TIPS={
   accrued:"Put it on a joker you fire late \u2014 build the round, then detonate.",
-  accredited:"Grows as you study. Pair with your biggest engine and keep acing Pop Quizzes.",
+  accredited:"Factor = 1 + average topic game progress / 100. Pair with your biggest engine.",
   syndicated:"Loves a full board \u2014 strongest in a wide, many-joker build.",
   marked:"A gamble: a flutter on a cheap joker, a white-knuckle swing on your keystone.",
   attested:"Rewards a hot streak \u2014 keep acing Pop Quizzes and it doubles.",
@@ -1204,7 +1318,7 @@ const ELEMENTS={S:{label:'Spades',color:'#c9cede'},H:{label:'Hearts',color:'#ff5
 const ELKEYS=Object.keys(ELEMENTS);
 const STARTER_UNLOCKS=(CORE_JK.starterUnlocks||[]).concat(PACK.starterUnlocks||[]);
 const CODEX_HINT=Object.assign({},CORE_JK.codexHints||{},PACK.codexHints||{});
-const MODLABEL=PACK.modules||{};
+const MODLABEL=Object.assign(Object.create(null),PACK.modules||{});
 // v13.1: every user-facing label derives from the loaded pack, so AUD/BAR/REG never say "FAR".
 // Community packs (importer.html) and shared decks carry no `section`, so nothing may assume one:
 //   SECTION      -> "FAR" | "AUD" | "BAR" | "REG", or "" when the pack is not a formal exam section
@@ -1276,6 +1390,7 @@ let QBANK=[];
    local-storage wrapped in try/catch with an in-memory Map fallback. Sandboxed iframes,
    private windows, and storage-disabled browsers all gracefully degrade to a per-session
    cache instead of throwing. Keys are namespaced under "aced:<pack>:<key>". */
+let missedEverAccess; // Private to this engine realm; never part of the general store API.
 const ACED_STORE=(function(){
   const PACKID=(PACK&&PACK.id)?PACK.id:"default";
   const NS="aced:"+PACKID+":";
@@ -1290,6 +1405,94 @@ const ACED_STORE=(function(){
     if(lsOk){ try{ window["local"+"Storage"].setItem(NS+k,v); return true; }catch(e){ mem[k]=v; return false; } }
     mem[k]=v; return false;
   }
+  // This one history map needs raw knowledge and accepted consumption. Do not
+  // project a failed read/corrupt JSON into an empty historical map.
+  let missedKnown=false, missedRaw=null, missedShadow=null;
+  const missedEvents=Object.create(null);
+  function missedCopy(v,stack){
+    if(v===null||typeof v==="string"||typeof v==="boolean")return v;
+    if(typeof v==="number"&&Number.isFinite(v))return v;
+    if(!v||typeof v!=="object")throw Error("unsupported");
+    const array=Array.isArray(v),proto=Object.getPrototypeOf(v);
+    if(!array&&proto!==null&&proto!==Object.prototype)throw Error("unsupported");
+    stack=stack||[];
+    if(stack.indexOf(v)>=0||Object.getOwnPropertySymbols(v).length)throw Error("unsupported");
+    const names=Object.getOwnPropertyNames(v),keys=Object.keys(v);
+    if(array&&(keys.length!==v.length||names.length!==v.length+1))throw Error("unsupported");
+    const out=array?Object.setPrototypeOf([],null):Object.create(null);
+    stack.push(v);
+    names.forEach(function(k){
+      if(array&&k==="length")return;
+      const d=Object.getOwnPropertyDescriptor(v,k);
+      if(!d.enumerable||!Object.prototype.hasOwnProperty.call(d,"value")||
+        (array&&(!/^(0|[1-9]\d*)$/.test(k)||Number(k)>=v.length)))throw Error("unsupported");
+      Object.defineProperty(out,k,{value:missedCopy(d.value,stack),enumerable:true,writable:true,configurable:true});
+    });
+    stack.pop();
+    return out;
+  }
+  function missedSnapshot(){
+    if(missedShadow)return {map:missedShadow,durable:false};
+    let readable=false;
+    try{
+      const raw=window["local"+"Storage"].getItem(NS+"missedEver");
+      missedRaw=raw;missedKnown=true;readable=true;
+    }catch(e){}
+    if(!missedKnown)return null;
+    try{
+      if(missedRaw!==null&&typeof missedRaw!=="string")return null;
+      const map=missedRaw===null?Object.create(null):JSON.parse(missedRaw);
+      if(!map||typeof map!=="object"||Array.isArray(map))return null;
+      return {map:missedCopy(map),durable:readable};
+    }catch(e){return null;}
+  }
+  function missedTruth(map,k){
+    const d=Object.getOwnPropertyDescriptor(map,k);
+    return !!(d&&Object.prototype.hasOwnProperty.call(d,"value")&&d.value);
+  }
+  function missedChange(k,consume){
+    if(!k)return false;
+    if(Object.prototype.hasOwnProperty.call(missedEvents,k)){
+      const pending=missedEvents[k]==="pending";
+      if(consume&&pending)missedEvents[k]="consumed";
+      else if(!consume)missedEvents[k]="pending";
+      return consume?pending:true;
+    }
+    const snapshot=missedSnapshot();
+    if(!snapshot){
+      if(!consume)Object.defineProperty(missedEvents,k,{value:"pending",writable:true,enumerable:true});
+      return false;
+    }
+    const truth=missedTruth(snapshot.map,k);
+    if(consume?!truth:truth)return false;
+    let candidate,prepared;
+    try{
+      candidate=missedCopy(snapshot.map);
+      if(consume)delete candidate[k];
+      else Object.defineProperty(candidate,k,{value:1,enumerable:true,writable:true,configurable:true});
+      prepared=JSON.stringify(missedCopy(candidate));
+      if(typeof prepared!=="string")throw Error("unsupported");
+    }catch(e){
+      if(!consume)Object.defineProperty(missedEvents,k,{value:"pending",writable:true,enumerable:true});
+      return false;
+    }
+    if(snapshot.durable&&_write("missedEver",prepared)){
+      missedKnown=true;missedRaw=prepared;
+    }else{
+      // Full known-map authority for this realm, with no retry/stale reread.
+      missedShadow=candidate;
+    }
+    return true;
+  }
+  missedEverAccess={
+    has(k){
+      if(!k)return false;
+      if(Object.prototype.hasOwnProperty.call(missedEvents,k))return missedEvents[k]==="pending";
+      const snapshot=missedSnapshot();return !!(snapshot&&missedTruth(snapshot.map,k));
+    },
+    add(k){return missedChange(k,false);},
+    consume(k){return missedChange(k,true);}
+  };
   return {
     get(k,fallback){ const raw=_read(k); if(raw==null)return fallback; try{ return JSON.parse(raw); }catch(e){ return fallback; } },
     set(k,v){ try{ _write(k,JSON.stringify(v)); }catch(e){} },
@@ -1304,8 +1507,8 @@ let BEST_SCORE=ACED_STORE.get("bestScore",0);
 let BEST_ANTE=ACED_STORE.get("bestAnte",0);
 let LAST_DAILY_DATE=ACED_STORE.get("lastDailyDate","");
 window._ACED_STATE={mastery:MASTERY,store:ACED_STORE};
-function masteryPct(k){return Math.min(100,Math.round((MASTERY[k]||0)*2));}
-function addMastery(k,delta){if(!k)return;MASTERY[k]=(MASTERY[k]||0)+delta;ACED_STORE.set("mastery",MASTERY);persistMastery(k,delta);renderMastery();renderReadiness();}
+function masteryPct(k){return Math.min(100,Math.round((ownValue(MASTERY,k,0)||0)*2));}
+function addMastery(k,delta){if(!k)return;setOwn(MASTERY,k,(ownValue(MASTERY,k,0)||0)+delta);ACED_STORE.set("mastery",MASTERY);persistMastery(k,delta);renderMastery();renderReadiness();}
 // Mastery is stored in this browser by ACED_STORE (above); there is no mastery endpoint to call.
 function persistMastery(moduleKey,delta){}
 function weakestModule(){
@@ -1327,7 +1530,8 @@ function tone(f,d,t='square',v=0.16){const c=ac();if(!c)return;const o=c.createO
 const sfx={sel:()=>tone(520,0.05,'square',0.1),disc:()=>tone(300,0.07,'triangle',0.12),tick:()=>tone(760,0.03,'square',0.07),card:f=>tone(f,0.06,'square',0.12),coin:()=>{tone(880,0.05,'square',0.12);setTimeout(()=>tone(1170,0.07,'square',0.12),50);},buy:()=>{tone(660,0.06);setTimeout(()=>tone(990,0.08),60);},big:()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.16),i*70));},boom:()=>{[392,523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>tone(f,0.13,'triangle',0.18),i*60));},lose:()=>{[330,247,196,147].forEach((f,i)=>setTimeout(()=>tone(f,0.2,'sawtooth',0.18),i*120));}};
 
 // ===== Joker Codex unlock tracking (pack-agnostic) =====
-let UNLOCKED=new Set(ACED_STORE.get("unlocked",STARTER_UNLOCKS));
+function savedUnlockedIds(){const ids=ACED_STORE.get("unlocked",[]);return Array.isArray(ids)?ids.filter(id=>typeof id==="string"&&id.trim().length>0):[];}
+let UNLOCKED=new Set(STARTER_UNLOCKS.concat(savedUnlockedIds()));
 function saveUnlocked(){ ACED_STORE.set("unlocked",[...UNLOCKED]); }
 // Auto-unlock jokers after each hand by running PACK.unlockConditions(ctx,G).
 function checkUnlocks(ctx){
@@ -1348,7 +1552,7 @@ function startDeck(){var topics=[];try{if(window.ACED_QUESTIONS&&window.ACED_QUE
 const STARTER_MONEY=(PACK.starter&&typeof PACK.starter.money==="number")?PACK.starter.money:4;
 function freshGame(){return{ante:1,blind:0,score:0,target:TARGETS[1][0],handsLeft:4,discLeft:3,handsThisBlind:0,money:STARTER_MONEY,
   vouchers:[],voucherOffer:null,
-  masterDeck:startDeck(),drawPile:[],hand:[],sel:new Set(),jokers:[],consumables:[],boss:null,nemesis:null,firstScored:false,busy:false,shop:null,jkState:{},handCounts:{},insight:0,handLevels:{},missedThisRun:[],conviction:{},_chargedThisClose:{},_lastAuditPassed:false,_redeemedCount:0,jkTreatment:{}};}
+  masterDeck:startDeck(),drawPile:[],hand:[],sel:new Set(),jokers:[],consumables:[],boss:null,nemesis:null,firstScored:false,busy:false,shop:null,jkState:{},handCounts:{},insight:0,handLevels:{},missedThisRun:[],conviction:Object.create(null),_chargedThisClose:Object.create(null),_lastAuditPassed:false,_redeemedCount:0,jkTreatment:{}};}
 
 const $=id=>document.getElementById(id);
 function handSize(){return (G.boss==="grind"?7:(G.boss==="thesqueeze"?6:8))+(vHas("handsize")?1:0);}
@@ -1376,6 +1580,90 @@ function cardHTML(c,dealIdx){const mod=c.weakness?'<div class="modk" style="colo
   ${fin}<div><div class="el ${esc(c.el)}">${esc(c.el)}</div><div class="cn">${esc(c.n)}</div>${c.tags.length&&!c.weakness?`<div class="tagline">${tagLine(c)}</div>`:""}</div>
   ${mod}<div class="cv ${esc(c.el)}">$${Number(c.v)|0}</div></div>`;}
 
+let cardFocusSupport=null;
+function cardFocusData(object,key){
+  const d=Object.getOwnPropertyDescriptor(object,key);
+  return d&&Object.prototype.hasOwnProperty.call(d,"value")?d.value:undefined;
+}
+function cardFocusContext(){
+  if(document.hidden!==false||document.visibilityState!=="visible"||typeof document.hasFocus!=="function"||document.hasFocus()!==true)return null;
+  const overlay=document.getElementById("overlay"),tutorial=document.getElementById("tutBackdrop");
+  if(!overlay||!tutorial||overlay.classList.contains("show")||tutorial.classList.contains("show"))return null;
+  if(Array.from(document.querySelectorAll('.aced-ob-back,dialog[open],[role="dialog"][aria-modal="true"]')).some(n=>n.isConnected))return null;
+  const game=G,pack=PACK,packId=cardFocusData(pack,"id");
+  if(!game||cardFocusData(game,"busy")!==false||cardFocusData(window,"ACED_PACK")!==pack||typeof packId!=="string"||!packId.trim())return null;
+  const hand=cardFocusData(game,"hand"),owner=document.getElementById("hand");
+  if(!Array.isArray(hand)||!owner||owner.ownerDocument!==document||owner.nodeType!==1||owner.isConnected!==true)return null;
+  const rows=[],ids=new Set();
+  for(let i=0;i<hand.length;i++){
+    const card=cardFocusData(hand,i);
+    if(!card||typeof card!=="object")return null;
+    const id=cardFocusData(card,"id");
+    if(!Number.isSafeInteger(id)||id<=0||ids.has(id))return null;
+    ids.add(id);rows.push({card,id});
+  }
+  return {game,pack,packId,hand,owner,rows};
+}
+function cardFocusLive(node,owner){
+  if(!node||node.nodeType!==1||node.tagName!=="DIV"||node.ownerDocument!==document||node.parentElement!==owner||node.isConnected!==true||!node.classList.contains("card"))return false;
+  const name=node.getAttribute("aria-label");
+  if(node.getAttribute("role")!=="button"||node.getAttribute("tabindex")!=="0"||node.tabIndex!==0||typeof name!=="string"||!name.trim())return false;
+  if(node.hidden||node.inert||node.disabled||node.hasAttribute("disabled")||node.getAttribute("aria-disabled")==="true"||node.closest('[hidden],[inert],[aria-hidden="true"]'))return false;
+  const style=getComputedStyle(node),rects=node.getClientRects();
+  return style.display!=="none"&&style.visibility==="visible"&&typeof style.opacity==="string"&&Number.isFinite(Number(style.opacity))&&Number(style.opacity)>0&&Array.from(rects).some(r=>Number.isFinite(r.width)&&Number.isFinite(r.height)&&r.width>0&&r.height>0);
+}
+function cardFocusNative(node,method){
+  let p=node;
+  while(p&&p!==HTMLElement.prototype){
+    if(Object.getOwnPropertyDescriptor(p,"focus"))return false;
+    p=Object.getPrototypeOf(p);
+  }
+  return p===HTMLElement.prototype&&cardFocusData(p,"focus")===method;
+}
+function cardFocusMethod(node){
+  if(typeof HTMLElement!=="function")return null;
+  const method=cardFocusData(HTMLElement.prototype,"focus");
+  if(typeof method!=="function"||!cardFocusNative(node,method))return null;
+  if(cardFocusSupport===null){
+    cardFocusSupport={method,supported:false};
+    const active=document.activeElement,probe=document.createElement("button");
+    if(!probe||probe.tagName!=="BUTTON"||probe.ownerDocument!==document||probe.isConnected!==false||!cardFocusNative(probe,method))return null;
+    let read=false;
+    Reflect.apply(method,probe,[{get preventScroll(){read=true;return true;}}]);
+    if(document.activeElement!==active)return null;
+    cardFocusSupport.supported=read;
+  }
+  return cardFocusSupport.supported&&cardFocusSupport.method===method?method:null;
+}
+function cardFocusTicket(node,event){
+  try{
+    if(document.activeElement!==node||event.currentTarget!==node||event.target!==node)return null;
+    const context=cardFocusContext();
+    if(!context||!cardFocusLive(node,context.owner))return null;
+    const literal=node.getAttribute("data-id");
+    if(typeof literal!=="string"||!/^[1-9][0-9]*$/.test(literal))return null;
+    const id=Number(literal);
+    if(!Number.isSafeInteger(id)||String(id)!==literal||!context.rows.some(r=>r.id===id))return null;
+    if(Array.from(document.querySelectorAll("#hand .card")).filter(n=>n.parentElement===context.owner&&n.getAttribute("data-id")===literal).length!==1)return null;
+    const method=cardFocusMethod(node);
+    return method?{...context,node,literal,id,method}:null;
+  }catch(e){return null;}
+}
+function restoreCardFocus(ticket){
+  if(!ticket)return;
+  try{
+    if(ticket.node.isConnected!==false||ticket.node.ownerDocument!==document)return;
+    const current=cardFocusContext();
+    if(!current||current.game!==ticket.game||current.pack!==ticket.pack||current.packId!==ticket.packId||current.hand!==ticket.hand||current.owner!==ticket.owner||current.rows.length!==ticket.rows.length)return;
+    if(current.rows.some((r,i)=>r.card!==ticket.rows[i].card||r.id!==ticket.rows[i].id))return;
+    const candidates=Array.from(document.querySelectorAll("#hand .card")).filter(n=>n.parentElement===current.owner&&n.getAttribute("data-id")===ticket.literal);
+    if(candidates.length!==1||!cardFocusLive(candidates[0],current.owner))return;
+    const target=candidates[0],body=document.body;
+    if(document.activeElement===target||document.activeElement!==body||!body||body.tagName!=="BODY"||body.ownerDocument!==document||body.isConnected!==true)return;
+    if(!cardFocusNative(target,ticket.method)||cardFocusData(HTMLElement.prototype,"focus")!==ticket.method)return;
+    Reflect.apply(ticket.method,target,[{preventScroll:true}]);
+  }catch(e){}
+}
 function render(){
   $("blindName").textContent=G.nemesis?("Ante "+G.ante+" \u00b7 \u2620 NEMESIS"):("Ante "+G.ante+" \u00b7 "+BLINDLBL[G.blind]);
   $("blindBanner").className="blind"+(G.blind===2?" boss":"");
@@ -1407,7 +1695,7 @@ function render(){
   showCardTip(tipC||null);
   $("play").disabled=G.busy||sel.length===0||G.handsLeft<=0;
   $("discard").disabled=G.busy||sel.length===0||G.discLeft<=0;
-  document.querySelectorAll("#hand .card").forEach(el=>{const toggle=()=>{if(G.busy)return;const id=+el.dataset.id;if(G.sel.has(id))G.sel.delete(id);else{if(G.sel.size>=5){toast("Max 5 cards per hand.");return;}G.sel.add(id);}G._tipId=id;sfx.sel();render();};el.onclick=toggle;el.onkeydown=(e)=>{if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();toggle();}};});
+  document.querySelectorAll("#hand .card").forEach(el=>{const toggle=()=>{if(G.busy)return;const id=+el.dataset.id;if(G.sel.has(id))G.sel.delete(id);else{if(G.sel.size>=5){toast("Max 5 cards per hand.");return;}G.sel.add(id);}G._tipId=id;sfx.sel();render();};el.onclick=toggle;el.onkeydown=(e)=>{if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();try{if(typeof e.stopPropagation==="function")e.stopPropagation();}catch(ignore){}const ticket=cardFocusTicket(el,e);toggle();restoreCardFocus(ticket);}};});
   document.querySelectorAll("#consRail .ci").forEach(el=>el.onclick=()=>{if(G.busy)return;useConsumable(+el.dataset.ci);});
 }
 let toastT=null;
@@ -1542,8 +1830,8 @@ async function play(){
   // Added once per distinct module in the played hand (not per card) so it rewards playing
   // your studied topics without exploding. Earned only by passing that topic's Pop Quiz.
   if(G.conviction){
-    var _cseen={},_convAdd=0;
-    played.forEach(function(c){ if(c.moduleKey&&!c.weakness&&!_cseen[c.moduleKey]){ _cseen[c.moduleKey]=1; _convAdd+=(G.conviction[c.moduleKey]||0); } });
+    var _cseen=Object.create(null),_convAdd=0;
+    played.forEach(function(c){ if(c.moduleKey&&!c.weakness&&!_cseen[c.moduleKey]){ _cseen[c.moduleKey]=1; _convAdd+=(ownValue(G.conviction,c.moduleKey,0)||0); } });
     if(_convAdd>0){ ctx.mult+=_convAdd; try{ var _rm=$("roM"),_rb=_rm&&_rm.getBoundingClientRect(); if(_rb)floatText(_rb.left+_rb.width/2,_rb.top-16,"+"+_convAdd+" mult · conviction","var(--gold)"); }catch(e){} }
   }
   if(ctx.chips<0)ctx.chips=0;
@@ -1570,8 +1858,8 @@ async function play(){
   const firedModuleBonus=new Set();
   played.forEach(c=>{if(c.moduleKey&&!c.weakness){addMastery(c.moduleKey,1+(firedModuleBonus.has(c.moduleKey)?2:0));}});
   // ===== v9: CHARGE — every hand this close tallies its topics; the Pop Quiz picks from them =====
-  if(!G._chargedThisClose)G._chargedThisClose={};
-  played.forEach(function(c){ if(c.moduleKey&&!c.weakness){ G._chargedThisClose[c.moduleKey]=(G._chargedThisClose[c.moduleKey]||0)+1; } });
+  if(!G._chargedThisClose)G._chargedThisClose=Object.create(null);
+  played.forEach(function(c){ if(c.moduleKey&&!c.weakness){ setOwn(G._chargedThisClose,c.moduleKey,(ownValue(G._chargedThisClose,c.moduleKey,0)||0)+1); } });
   checkUnlocks(ctx);
   G.hand=G.hand.filter(c=>!G.sel.has(c.id));G.sel.clear();
   await wait(420);
@@ -1614,7 +1902,57 @@ function offerStudyBreak(){
 }
 
 // ===== POP QUIZ (v6) =====
-let AUDIT=null; // {q, modKey, confidence}
+let AUDIT=null; // {q, modKey, confidence, recording: transient submitted results}
+const RECORDING_SCOPE="Recording status describes these answer updates, not all game progress or cloud sync.";
+const RECORDING_COPY=[
+  "recorded in this browser.",
+  "current progress update accepted in this browser; some historical fields or totals remain unknown.",
+  "recorded for this page session only, not saved to browser storage.",
+  "current progress update accepted for this page session only; some historical fields or totals remain unknown. Not saved to browser storage.",
+  "this update was not recorded; existing history was left unchanged.",
+  "this answer was not recorded.",
+  "recording could not be confirmed."
+];
+// Copy only inert own metadata; accessors/inherited projections are not evidence.
+function resultMetadata(result){
+  if(!result||typeof result!=="object"||Array.isArray(result))return null;
+  try{
+    if(Object.getOwnPropertySymbols(result).length)return null;
+    const out=Object.create(null);
+    Object.getOwnPropertyNames(result).forEach(function(k){
+      const d=Object.getOwnPropertyDescriptor(result,k);
+      if(!Object.prototype.hasOwnProperty.call(d,"value"))throw Error("unsupported");
+      Object.defineProperty(out,k,{value:d.value,enumerable:true});
+    });
+    return out;
+  }catch(e){return null;}
+}
+function recordingClass(result){
+  const r=resultMetadata(result);
+  if(!r)return 6;
+  if(r.error||r.ok===false||r.synced===false)return 6;
+  if(r.outcome==="recorded"&&r.persistence==="durable"&&r.reason==="complete")return 0;
+  if(r.outcome==="partial"&&r.reason==="historical-fields-unknown"){
+    if(r.persistence==="durable")return 1;if(r.persistence==="memory")return 3;
+  }
+  if(r.outcome==="recorded"&&r.persistence==="memory"&&r.reason==="storage-unavailable")return 2;
+  if(r.outcome==="held"&&r.persistence==="none"&&
+    ["historical-state-held","serialization-failed","storage-unavailable","raw-state-unavailable"].includes(r.reason))return 4;
+  if(r.outcome==="no-question"&&r.persistence==="none"&&r.reason==="no-question")return 5;
+  return 6;
+}
+function recordingLines(status){
+  const lines=["Review: "+RECORDING_COPY[status.review]];
+  if(status.library!==null)lines.push("Library recall: "+RECORDING_COPY[status.library]);
+  return lines;
+}
+function recordingHTML(status){
+  return '<div class="recording-status">'+recordingLines(status).map(t=>'<p>'+esc(t)+'</p>').join("")+
+    '<p>'+RECORDING_SCOPE+'</p></div>';
+}
+function announceRecording(text){
+  const live=$("recordingStatusLive");if(live)live.textContent=text;
+}
 function pickAuditQuestion(){
   const bank=QBANK;
   if(!bank.length)return null;
@@ -1667,13 +2005,13 @@ function renderAuditPicker(topics){
   try{ auditEntryFX(); }catch(e){}
   var tickets=topics.map(function(t){
     var hot=t.pct<35, lbl=(MODLABEL[t.mk]||t.mk);
-    return '<button class="pick auditpick'+(hot?' hot':'')+'" data-mk="'+esc(t.mk)+'" role="button" tabindex="0" aria-label="'+esc(lbl)+', mastery '+t.pct+' percent, bounty '+t.bounty+'">'+
+    return '<button class="pick auditpick'+(hot?' hot':'')+'" data-mk="'+esc(t.mk)+'" role="button" tabindex="0" aria-label="'+esc(lbl)+', game progress '+t.pct+' percent, bounty '+t.bounty+'">'+
       '<div class="pn">'+esc(lbl)+'</div>'+
-      '<div class="pd">your mastery '+t.pct+'% \u00b7 charged \u00d7'+t.charge+'</div>'+
-      '<div class="cost" style="color:'+(hot?'var(--gold)':'var(--money)')+'">BOUNTY $'+t.bounty+(hot?' \u2014 weak spot':'')+'</div></button>';
+      '<div class="pd">topic game progress '+t.pct+'% \u00b7 charged \u00d7'+t.charge+'</div>'+
+      '<div class="cost" style="color:'+(hot?'var(--gold)':'var(--money)')+'">BOUNTY $'+t.bounty+(hot?' \u2014 lower game progress':'')+'</div></button>';
   }).join("");
   showModal('<div class="qmodal" style="border:0;padding:0"><h2>POP QUIZ \u2014 CHOOSE YOUR TOPIC</h2>'+
-    '<div class="help" style="margin:-2px 0 8px">Your hand charged these topics. Pick one to face \u2014 weaker topics pay more, and passing buffs those cards for the rest of the run.</div>'+
+    '<div class="help" style="margin:-2px 0 8px">Your hand charged these topics. Pick one to face. Lower game progression pays more; a correct answer buffs those cards for the rest of the run.</div>'+
     '<div class="picks">'+tickets+'</div></div>');
   $("modal").classList.add("qmodal");
   document.querySelectorAll(".auditpick").forEach(function(el){
@@ -1699,6 +2037,7 @@ function auditMoment(){
 }
 function cashoutArgs(){const c=G._pendingCashout;return [c.base,c.unused,c.interest,c.earned];}
 function renderAudit(){
+  const continueFocus=AUDIT.locked&&document.activeElement&&document.activeElement.id==="auditSubmit";
   const q=AUDIT.q;const lbl=(MODLABEL[AUDIT.modKey]||AUDIT.modKey||SUBJECT);
   const conf=AUDIT.confidence;
   const choices=q.choices.map((c,i)=>{
@@ -1713,7 +2052,7 @@ function renderAudit(){
   let footer;
   if(AUDIT.locked){
     const correct=AUDIT.selected===q.answer;
-    footer=`<div class="qexpl"><b>${correct?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${q.je?jeHTML(q.je):""}
+    footer=`<div class="qexpl"><b>${correct?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${q.je?jeHTML(q.je):""}${AUDIT.recording?recordingHTML(AUDIT.recording):""}
       <div class="shopbar"><button class="act play" id="auditCont">CONTINUE TO SHOP →</button></div>`;
   }else{
     footer=`<div class="shopbar"><button class="act play" id="auditSubmit"${(AUDIT.selected===null||!conf)?' disabled':''}>SUBMIT ANSWER</button></div>
@@ -1727,12 +2066,15 @@ function renderAudit(){
     document.querySelectorAll("[data-ach]").forEach(el=>el.onclick=()=>{AUDIT.selected=+el.dataset.ach;sfx.sel();renderAudit();});
     document.querySelectorAll("[data-conf]").forEach(el=>el.onclick=()=>{AUDIT.confidence=el.dataset.conf;sfx.tick();renderAudit();});
     const sb=$("auditSubmit");if(sb)sb.onclick=submitAudit;
-  }else{$("auditCont").onclick=()=>{$("modal").classList.remove("qmodal");openCashout(...cashoutArgs());};}
+  }else{
+    $("auditCont").onclick=()=>{$("modal").classList.remove("qmodal");openCashout(...cashoutArgs());};
+    if(continueFocus)$("auditCont").focus();
+  }
 }
 function _qKey(q){ return (q&&(q.id||q.q))?String(q.id||q.q):""; }
-function wasMissedEver(q){ var k=_qKey(q); if(!k)return false; var m=ACED_STORE.get("missedEver",{}); return !!m[k]; }
-function addMissedEver(q){ var k=_qKey(q); if(!k)return; var m=ACED_STORE.get("missedEver",{}); if(!m[k]){ m[k]=1; ACED_STORE.set("missedEver",m); } }
-function clearMissedEver(q){ var k=_qKey(q); if(!k)return; var m=ACED_STORE.get("missedEver",{}); if(m[k]){ delete m[k]; ACED_STORE.set("missedEver",m); } }
+function wasMissedEver(q){ return missedEverAccess.has(_qKey(q)); }
+function addMissedEver(q){ return missedEverAccess.add(_qKey(q)); }
+function clearMissedEver(q){ return missedEverAccess.consume(_qKey(q)); }
 function nemesisRise(n){
   if(!n)return;
   try{ var seen=ACED_STORE.get("nemAnnounced",null); if(seen===n.born)return; ACED_STORE.set("nemAnnounced",n.born); }catch(e){ return; }
@@ -1743,16 +2085,17 @@ function nemesisRise(n){
   try{ sfx.boom(); }catch(e){}
 }
 function submitAudit(){
-  if(AUDIT.selected===null||!AUDIT.confidence)return;
+  if(AUDIT.locked||AUDIT.selected===null||!AUDIT.confidence)return;
   AUDIT.locked=true;
+  AUDIT.recording={review:6,library:window.ACEDLibraryRecord?6:null};
   if(vHas("cpe"))G.money+=3;
   const q=AUDIT.q,mk2=AUDIT.modKey,conf=AUDIT.confidence,m=CONF[conf].mult;
   const correct=AUDIT.selected===q.answer;
   G._lastAuditPassed=correct; // v10: Backed Judgment reads this next close
   try{ if(window.ACEDCore){
     ACEDCore.calibration.record({confidence:conf,correct:correct,source:q.source||mk2});
-    ACEDCore.review.record(q,correct);
-    if(window.ACEDLibraryRecord)window.ACEDLibraryRecord(q,correct);
+    AUDIT.recording.review=recordingClass(ACEDCore.review.record(q,correct));
+    if(window.ACEDLibraryRecord)AUDIT.recording.library=recordingClass(window.ACEDLibraryRecord(q,correct));
     ACEDCore.analytics.track("quiz_answered",{module:q.source||mk2,correct:correct,confidence:conf});
     updateReviewBadge();
   } }catch(e){}
@@ -1762,12 +2105,12 @@ function submitAudit(){
     var _pctB=0; try{_pctB=masteryPct(mk2);}catch(_e){}
     var _cashM=(conf==="HIGH"?1.5:conf==="MED"?1.2:1); var _pay=Math.max(1,Math.round((AUDIT.bounty||5)*_cashM)); G.money+=_pay; addMastery(mk2,Math.round(5*m)); // cash scales gently with confidence; the real HIGH/LOW gamble is on mastery + conviction + weakness cards below
     // v9: Conviction — passing an audit permanently buffs that topic's cards for the rest of the run.
-    if(!G.conviction)G.conviction={}; var _cv=(conf==="HIGH"?3:2); G.conviction[mk2]=Math.min(12,(G.conviction[mk2]||0)+_cv);
+    if(!G.conviction)G.conviction=Object.create(null); var _cv=(conf==="HIGH"?3:2); setOwn(G.conviction,mk2,Math.min(12,(ownValue(G.conviction,mk2,0)||0)+_cv));
     var _ins=(conf==="HIGH"?3:conf==="MED"?2:1)+(vHas("insightplus")?1:0); G.insight=(G.insight||0)+_ins; try{var _iel=$("hInsight");if(_iel){var _ib=_iel.getBoundingClientRect();floatText(_ib.left+_ib.width/2,_ib.top-10,"+"+_ins+" insight","var(--gold)");}}catch(e){}
-    var _pctA=0; try{_pctA=masteryPct(mk2);}catch(_e){} var _redeemed=wasMissedEver(q); if(_redeemed){clearMissedEver(q);G._redeemedCount=(G._redeemedCount||0)+1;} var _mile=[25,50,75,100].filter(function(t){return _pctB<t&&_pctA>=t;}); var _crossed=_mile.length?_mile[_mile.length-1]:0; var _learn=_redeemed||_crossed>0; G._closeClean=true;
+    var _pctA=0; try{_pctA=masteryPct(mk2);}catch(_e){} var _redeemed=clearMissedEver(q); if(_redeemed){G._redeemedCount=(G._redeemedCount||0)+1;} var _mile=[25,50,75,100].filter(function(t){return _pctB<t&&_pctA>=t;}); var _crossed=_mile.length?_mile[_mile.length-1]:0; var _learn=_redeemed||_crossed>0; G._closeClean=true;
     G._shopDelta=(G._shopDelta||0)-1; // shop 1 cheaper
-    if(_redeemed){ callout("\u2713 REDEEMED \u00b7 +$"+_pay,"var(--money)"); toast("You missed "+(MODLABEL[mk2]||"this")+" before \u2014 now it\u2019s yours. Conviction +"+_cv+"."); }
-    else if(_crossed){ callout((MODLABEL[mk2]||"MODULE").toUpperCase()+" \u2014 "+_crossed+"% MASTERY","var(--gold)"); toast("Strengthening a weak area \u2014 +$"+_pay+", Conviction +"+_cv+" on these cards."); }
+    if(_redeemed){ callout("\u2713 REDEEMED \u00b7 +$"+_pay,"var(--money)"); toast("You answered "+(MODLABEL[mk2]||"this topic")+" correctly this time. Conviction +"+_cv+"."); }
+    else if(_crossed){ callout((MODLABEL[mk2]||"MODULE").toUpperCase()+" \u2014 "+_crossed+"% GAME PROGRESS","var(--gold)"); toast("Topic game progress increased \u2014 +$"+_pay+", Conviction +"+_cv+" on these cards."); }
     else { callout("PASSED +$"+_pay+" \u00b7 CONVICTION +"+_cv,"var(--money)"); }
     // Consecutive-correct combo — escalates feel for KNOWING the material; owns the
     // correct-answer chime so it does not double with the old sfx.coin(). Falls back to
@@ -1782,8 +2125,8 @@ function submitAudit(){
     try{ if(window.ACEDFX)ACEDFX.combo.miss(); }catch(e){} // resets the streak; shows "STREAK BROKEN" only if it was >=3
     if(!G.missedThisRun)G.missedThisRun=[]; if(!G.missedThisRun.some(x=>x.q&&x.q.q===q.q))G.missedThisRun.push({q:q,mk:mk2});
     addMissedEver(q); G._closeClean=false;
-    if(conf==="HIGH"){ G._shopDelta=(G._shopDelta||0)+1; G.masterDeck.push(mk(WEAKNESS_CARD)); callout("OVERCONFIDENT \u2014 WEAKNESS CARD","var(--red)"); toast("You bet HIGH and missed \u2014 one Weakness Card joins the deck. Queued in Review."); }
-    else { callout("NO BONUS \u2014 QUEUED IN REVIEW","var(--grey)"); toast("Missed, but you played it safe \u2014 no penalty. Queued in Review for later."); }
+    if(conf==="HIGH"){ G._shopDelta=(G._shopDelta||0)+1; G.masterDeck.push(mk(WEAKNESS_CARD)); callout("OVERCONFIDENT \u2014 WEAKNESS CARD","var(--red)"); toast("You bet HIGH and missed \u2014 one Weakness Card joins the deck."); }
+    else { callout("NO BONUS \u2014 NO PENALTY","var(--grey)"); toast("Missed, but you played it safe \u2014 no penalty."); }
   }
   // Nemesis outcome (its callout outranks the audit one)
   if(nemRes){
@@ -1792,12 +2135,13 @@ function submitAudit(){
       var _spoil=null; try{ var _lk=ALLJK.filter(function(j){return !UNLOCKED.has(j.id);}); if(_lk.length){ _spoil=_lk[Math.floor(Math.random()*_lk.length)]; UNLOCKED.add(_spoil.id); saveUnlocked(); } }catch(e){}
       try{ if(window.ACEDFX){ ACEDFX.flash(ACEDFX.palette.gold,0.30); ACEDFX.burst(innerWidth/2,innerHeight*0.4,{count:44,colors:[ACEDFX.palette.gold,ACEDFX.palette.amber,"#ff5cb8"]}); } }catch(e){}
       callout("\u2620 "+nemRes.name.toUpperCase()+" VANQUISHED","var(--gold)");
-      toast(nemRes.name+" falls \u2014 "+(MODLABEL[nemRes.module]||nemRes.module)+" mastery surges (+readiness)"+(_spoil?(". Spoils: "+_spoil.n+" unlocked!"):"")+" +$5"); }
+      toast(nemRes.name+" falls \u2014 "+(MODLABEL[nemRes.module]||nemRes.module)+" topic game progress increases"+(_spoil?(". Spoils: "+_spoil.n+" unlocked!"):"")+" +$5"); }
     else if(correct){ callout("\u2620 "+nemRes.name+" \u2014 HP "+nemRes.hp+"/"+nemRes.maxHp,"var(--magenta)"); }
     else { toast(nemRes.name+" feeds on the miss \u2014 HP "+nemRes.hp+"/"+nemRes.maxHp+"."); }
   }
   try{ if(window.ACEDProgress) _progress(ACEDProgress.event("quiz_answered",{correct:correct,confidence:conf,module:q.source||mk2})); }catch(e){}
   renderAudit();renderMastery();renderReadiness();
+  announceRecording(recordingLines(AUDIT.recording).join(" "));
   try{ if(window.ACEDCore&&ACEDCore.sync) ACEDCore.sync.push(); }catch(e){} // cross-device sync (no-op until backend configured)
 }
 function openCashout(base,unused,interest,earned){
@@ -2164,7 +2508,7 @@ function nextBlind(){
   G.shop=null;
   G.target=targetFor(G.ante,G.blind);
   G.handsLeft=4+handBonus();G.discLeft=3+discBonus();G.handsThisBlind=0;G.firstScored=false;G.boss=null;G.nemesis=null;
-  G._chargedThisClose={}; // v9: fresh charge tally per close — the Pop Quiz draws only from topics you play this close
+  G._chargedThisClose=Object.create(null); // v9: fresh charge tally per close — the Pop Quiz draws only from topics you play this close
   G.auditBattle=null;
   if(G.blind===2){
     var _ab=G.nextBoss||pickAuditBoss(); G.nextBoss=null;
@@ -2207,7 +2551,7 @@ function closeBriefing(){
     ${warn}
     <div class="ladder">${ladder}</div>
     ${upHTML}
-    <p class="help" style="text-align:center;margin:8px 0 2px">Win the run by clearing all ${totalFY} ${V.yrs}.${isFinal?' <b style="color:var(--gold)">This is the '+V.final+'.</b>':''} Your <b style="color:var(--cyan)">Readiness</b> is saved no matter how the run ends \u2014 that\u2019s the real goal; the run is how you train.</p>
+    <p class="help" style="text-align:center;margin:8px 0 2px">Win the run by clearing all ${totalFY} ${V.yrs}.${isFinal?' <b style="color:var(--gold)">This is the '+V.final+'.</b>':''} ${GAME_END_SCOPE}</p>
     <div class="shopbar"><button class="act play" id="beginClose">\u25b6 BEGIN ROUND</button></div>
   </div>`);
   $("beginClose").onclick=beginClose;
@@ -2251,10 +2595,10 @@ function handsView(){
 }
 
 function deckView(){
-  const counts={};G.masterDeck.forEach(c=>{counts[c.el]=counts[c.el]||{};counts[c.el][c.n]=(counts[c.el][c.n]||0)+1;});
+  const counts=Object.create(null);G.masterDeck.forEach(c=>{counts[c.el]=counts[c.el]||Object.create(null);counts[c.el][c.n]=(counts[c.el][c.n]||0)+1;});
   const cols=ELKEYS.map(el=>{
-    const items=counts[el]?Object.entries(counts[el]).map(([n,q])=>`${n} ×${q}`).join("<br>"):"—";
-    return `<div class="deckcol"><h4 class="el ${el}" style="display:inline-block;color:${ELEMENTS[el].color}">${ELEMENTS[el].label} (${G.masterDeck.filter(c=>c.el===el).length})</h4><div class="dl">${items}</div></div>`;
+    const items=counts[el]?Object.entries(counts[el]).map(([n,q])=>`${esc(n)} ×${q}`).join("<br>"):"—";
+    return `<div class="deckcol"><h4 class="el ${esc(el)}" style="display:inline-block;color:${ELEMENTS[el].color}">${esc(ELEMENTS[el].label)} (${G.masterDeck.filter(c=>c.el===el).length})</h4><div class="dl">${items}</div></div>`;
   }).join("");
   showModal(`<h2>YOUR DECK · ${G.masterDeck.length} cards</h2><div class="deckgrid">${cols}</div>
     <div class="shopbar"><button class="act play" id="closeDeck">CLOSE</button></div>`);
@@ -2266,16 +2610,16 @@ function runInfoView(){
   const docs=G.jokers.length?G.jokers.map((j,i)=>{const r=rarityOf(j);const tk=G.jkTreatment&&G.jkTreatment[j.id];const canMove=G.jokers.length>1;return `<div class="riitem"><span class="riord">${i+1}</span><span class="rib" style="background:${r.col};color:#0a0e07">${r.lbl}</span><span class="ritext"><span class="rin">${esc(j.n)}${tk?" "+treatBadge(tk):""}</span><span class="rid">${esc(j.d)}${tk?esc(treatNote(tk)):""}</span></span>${canMove?`<span class="riarrows"><button class="riarrow" data-jkmove="${i}" data-dir="-1"${i===0?" disabled":""}>\u25C4</button><button class="riarrow" data-jkmove="${i}" data-dir="1"${i===G.jokers.length-1?" disabled":""}>\u25BA</button></span>`:""}</div>`;}).join("")+(G.jokers.length>1?`<div class="riorderhint">Jokers fire left\u2192right (slot 1 first). Order matters: scalers and copy/position jokers depend on it \u2014 reorder with \u25C4 \u25BA.</div>`:""):`<div class="riempty">No Jokers yet \u2014 buy some in the shop to warp the scoring math.</div>`;
   const vous=(G.vouchers&&G.vouchers.length)?G.vouchers.map(id=>{const v=VOUCHERS.find(x=>x.id===id);return v?`<div class="riitem"><span class="rib vou">VOUCHER</span><span class="ritext"><span class="rin">${esc(v.n)}</span><span class="rid">${esc(v.d)}</span></span></div>`:"";}).filter(Boolean).join(""):`<div class="riempty">No vouchers redeemed yet \u2014 one is offered each ${V.yr.toLowerCase()}.</div>`;
   const deckCounts=ELKEYS.map(el=>`<span class="ridk" style="color:${ELEMENTS[el].color}">${esc(ELEMENTS[el].label)}: ${G.masterDeck.filter(c=>c.el===el).length}</span>`).join("");
-  let rp=0; try{ rp=readinessPct(); }catch(e){}
+  const progress=gameProgressView();
   const touched=Object.keys(MASTERY).filter(k=>MASTERY[k]>0);
   const weak=touched.length?touched.slice().sort((a,b)=>(MASTERY[a]||0)-(MASTERY[b]||0)).slice(0,3):[];
-  const weakHTML=weak.length?weak.map(k=>`<div class="riweak"><span class="riwk">${esc(MODLABEL[k]||k)}</span><span class="riwbar"><span class="riwfill" style="width:${masteryPct(k)}%"></span></span><span class="riwp">${masteryPct(k)}%</span></div>`).join(""):`<div class="riempty">Answer Pop Quizzes to map which ${esc(SUBJECT)} modules need work.</div>`;
+  const weakHTML=weak.length?weak.map(k=>`<div class="riweak"><span class="riwk">${esc(MODLABEL[k]||k)}</span><span class="riwbar"><span class="riwfill" style="width:${masteryPct(k)}%"></span></span><span class="riwp">${masteryPct(k)}%</span></div>`).join(""):`<div class="riempty">No topics with game progress yet.</div>`;
   showModal(`<h2 style="color:var(--cyan)">RUN INFO</h2>
     <div class="ristate"><span><b>Ante</b> ${G.ante}/${MAXANTE}</span><span><b>${Cap(V.round)}</b> ${esc(BLINDLBL[G.blind]||"")}</span><span><b>Target</b> ${G.target}</span><span><b>Cash</b> $${G.money}</span><span><b>Hands</b> ${G.handsLeft}</span><span><b>Discards</b> ${G.discLeft}</span></div>
     <div class="rilbl gold">ACTIVE JOKERS \u00b7 ${G.jokers.length}/${docCap()}</div>${docs}
     <div class="rilbl vio">ACTIVE VOUCHERS</div>${vous}
     <div class="rilbl cyan">DECK \u00b7 ${G.masterDeck.length} cards <span class="rilink" id="riDeck">(full deck \u2192)</span></div><div class="rideck">${deckCounts}</div>
-    <div class="rilbl mag">READINESS \u00b7 ${rp}%${weak.length?" \u2014 study these next:":""}</div>${weakHTML}
+    <div class="rilbl mag">${esc(progress.text)}</div><p class="help">${GAME_PROGRESS_SCOPE}</p>${weakHTML}
     <div class="shopbar"><button class="act play" id="closeRI">CLOSE</button></div>`);
   $("closeRI").onclick=()=>{hideModal();if(G&&!G.busy)render();};
   document.querySelectorAll("[data-jkmove]").forEach(el=>el.onclick=()=>moveJoker(+el.dataset.jkmove,+el.dataset.dir));
@@ -2321,19 +2665,28 @@ function jeHTML(je){
 
 // ===== Calibration Grid — maps each module by confidence vs. accuracy =====
 function calibData(){
-  if(!window.ACEDCore) return {n:0,rows:[],pct:null,acc:null};
+  const empty={n:0,k:0,rows:[],pct:null,acc:null,omitted:false};
+  if(!window.ACEDCore) return empty;
   var PROB=(ACEDCore.calibration&&ACEDCore.calibration.PROB)||{LOW:.50,MED:.75,HIGH:.95};
-  var calib=ACEDCore.store.get("calib",{samples:[],byModule:{}});
-  var samples=calib.samples||[];
-  var by={};
-  for(var i=0;i<samples.length;i++){
-    var s=samples[i]; if(!s.m) continue;
-    var p=PROB[s.c]; if(p==null) continue;
-    var e=by[s.m]||{n:0,conf:0,ok:0};
-    e.n++; e.conf+=p; e.ok+=(s.ok?1:0); by[s.m]=e;
+  let calib;try{calib=ACEDCore.store.get("calib",null);}catch(e){return {...empty,omitted:true};}
+  if(calib==null)return empty;
+  const samplesField=viewData(calib,"samples");
+  if(!samplesField||!Array.isArray(samplesField.value))return {...empty,omitted:true};
+  const samples=samplesField.value;
+  var by=Object.create(null),n=0,k=0,b=0,omitted=false;
+  for(var i=Math.max(0,samples.length-400);i<samples.length;i++){
+    const entry=viewData(samples,String(i)),s=entry&&entry.value;
+    const c=viewData(s,"c"),ok=viewData(s,"ok"),loss=viewData(s,"b");
+    if(!c||!["LOW","MED","HIGH"].includes(c.value)||!ok||(ok.value!==0&&ok.value!==1)||
+      !loss||typeof loss.value!=="number"||!Number.isFinite(loss.value)||loss.value<0||loss.value>1){omitted=true;continue;}
+    n++;k+=ok.value;b+=loss.value;
+    const module=viewData(s,"m");
+    if(!module||typeof module.value!=="string"||!module.value.trim())continue;
+    var m=module.value,p=PROB[c.value],e=by[m]||{n:0,conf:0,ok:0};
+    e.n++;e.conf+=p;e.ok+=ok.value;by[m]=e;
   }
   var rows=[];
-  for(var m in by){ if(!by.hasOwnProperty(m)) continue;
+  for(var m in by){ if(!Object.prototype.hasOwnProperty.call(by,m)) continue;
     var d=by[m]; if(d.n<1) continue;
     var conf=Math.round((d.conf/d.n)*100), acc=Math.round((d.ok/d.n)*100), gap=conf-acc, state;
     if(d.n<3) state="tentative";
@@ -2343,28 +2696,28 @@ function calibData(){
     rows.push({m:m,label:(MODLABEL[m]||m),n:d.n,conf:conf,acc:acc,gap:gap,state:state});
   }
   rows.sort(function(a,b){ return Math.abs(b.gap)-Math.abs(a.gap); });
-  var sum=(ACEDCore.calibration.summary)?ACEDCore.calibration.summary():null;
-  return {n:samples.length,rows:rows,pct:(sum?sum.pct:null),acc:(sum?sum.accuracy:null)};
+  return {n:n,k:k,rows:rows,pct:n?Math.max(0,Math.min(100,Math.round(100*(1-b/n)))):null,
+    acc:n?Math.round(100*k/n):null,omitted:omitted};
 }
+function confidenceRowCue(r){return "In these "+r.n+" recorded bets: confidence "+r.conf+"%, accuracy "+r.acc+"%.";}
 var CALIB_STATE={
-  over:     {col:"var(--red)",   badge:"OVERCONFIDENT", cue:function(r){return "Bet ~"+r.conf+"%, scored "+r.acc+"%. Slow down here \u2014 think it through before you commit to an answer.";}},
-  under:    {col:"var(--amber)", badge:"UNDERCONFIDENT",cue:function(r){return "Bet ~"+r.conf+"%, scored "+r.acc+"%. You know this better than you think \u2014 back yourself.";}},
-  sharp:    {col:"var(--green)", badge:"CALIBRATED",    cue:function(r){return "Confidence ("+r.conf+"%) matches accuracy ("+r.acc+"%). Locked in.";}},
-  weak:     {col:"var(--grey)",  badge:"KNOWS THE GAP", cue:function(r){return "Low confidence, low accuracy ("+r.acc+"%) \u2014 honest read, but this is a study target. Drill it.";}},
-  tentative:{col:"var(--grey)",  badge:"NEED MORE",     cue:function(r){return "Only "+r.n+" bet"+(r.n!==1?"s":"")+" here \u2014 answer a few more Pop Quizzes to map this module.";}}
+  over:     {col:"var(--red)",   badge:"OVERCONFIDENT",cue:confidenceRowCue},
+  under:    {col:"var(--amber)", badge:"UNDERCONFIDENT",cue:confidenceRowCue},
+  sharp:    {col:"var(--green)", badge:"CALIBRATED",cue:confidenceRowCue},
+  weak:     {col:"var(--grey)",  badge:"RECORDED GAP",cue:confidenceRowCue},
+  tentative:{col:"var(--grey)",  badge:"NEED MORE",cue:confidenceRowCue}
 };
 function calibGridHTML(){
   var d=calibData();
   if(!d.n){
-    return '<div class="rilbl cyan" style="margin-top:14px">CALIBRATION \u00b7 KNOW WHAT YOU KNOW</div>'+
-      '<div class="cgempty">No confidence bets yet. Each Pop Quiz asks you to bet LOW / MED / HIGH \u2014 play a few and this maps every '+esc(SUBJECT)+' module by how well your confidence matches your accuracy.</div>';
+    return '<div class="rilbl cyan" style="margin-top:14px">CONFIDENCE BETS</div>'+
+      '<div class="cgempty">'+confidenceSummary(d)+'</div>';
   }
   var headPct=(d.pct!=null)?d.pct:"\u2014";
-  var word=(d.pct==null)?"":(d.pct>=80?"sharp \u2014 your confidence tracks your accuracy":d.pct>=60?"fair \u2014 a few gaps to fill":"loose \u2014 confidence and accuracy aren't lined up yet");
   var dots=d.rows.map(function(r){
     if(r.state==="tentative") return "";
     var c=CALIB_STATE[r.state].col;
-    var code=String(r.m).replace(/[^0-9A-Za-z.]/g,"");
+    var code=String(r.m);
     return '<div class="cgdot" style="left:'+r.acc+'%;bottom:'+r.conf+'%;background:'+c+';box-shadow:0 0 6px '+c+'"><span class="cgtip">'+esc(code)+'</span></div>';
   }).join("");
   var grid=
@@ -2382,9 +2735,9 @@ function calibGridHTML(){
     var st=CALIB_STATE[r.state];
     return '<div class="cgrow" style="border-left-color:'+st.col+'"><span class="cgmod">'+esc(r.label)+'</span><span class="cgbadge" style="color:'+st.col+'">'+st.badge+'</span><span class="cgnums">'+r.n+' BET'+(r.n!==1?"S":"")+'</span><span class="cgcue">'+esc(st.cue(r))+'</span></div>';
   }).join("");
-  return '<div class="cgwrap"><div class="rilbl cyan">CALIBRATION \u00b7 KNOW WHAT YOU KNOW</div>'+
-    '<div class="cghead"><span class="cgbig">'+headPct+'%</span><span class="cgheadlbl">CALIBRATION<br>SCORE</span></div>'+
-    (word?'<div class="cgsub">'+word+(d.acc!=null?' &middot; accuracy <b>'+d.acc+'%</b> over <b>'+d.n+'</b> bets':'')+'</div>':'')+
+  return '<div class="cgwrap"><div class="rilbl cyan">CONFIDENCE BETS</div>'+
+    '<div class="cghead"><span class="cgbig">'+headPct+'%</span><span class="cgheadlbl">CONFIDENCE-BET<br>CALIBRATION</span></div>'+
+    '<div class="cgsub">'+confidenceSummary(d)+'</div>'+
     grid+'<div class="cglist">'+list+'</div></div>';
 }
 
@@ -2394,47 +2747,46 @@ function nextBestAction(){
   var rows=d.rows||[];
   var over=rows.filter(function(r){return r.state==="over";});
   if(over.length){ var o=over[0];
-    return {tone:"over", text:"Review <b>"+esc(o.label)+"</b> \u2014 you bet about "+o.conf+"% there but scored "+o.acc+"%. Overconfidence is the costliest trap: slow down and check before you commit."};
+    return {tone:"over", text:"Review <b>"+esc(o.label)+"</b>. In these "+o.n+" recorded bets: confidence "+o.conf+"%, accuracy "+o.acc+"%."};
   }
   if(missed.length){ var mq=missed[0].q||{}; var mlabel=(MODLABEL[mq.source||missed[0].mk]||"");
     return {tone:"miss", text:"Review the <b>"+missed.length+"</b> Pop Quiz question"+(missed.length>1?"s":"")+" you missed this run"+(mlabel?(", starting with <b>"+esc(mlabel)+"</b>"):"")+" \u2014 while the reasoning is still fresh."};
   }
   var weakR=rows.filter(function(r){return r.state==="weak";});
   if(weakR.length){ var w=weakR[0];
-    return {tone:"weak", text:"Drill <b>"+esc(w.label)+"</b> \u2014 "+w.acc+"% accuracy so far. It's your highest-leverage study target, and Pop Quizzes will keep surfacing it."};
+    return {tone:"weak", text:"Practice <b>"+esc(w.label)+"</b>. In these "+w.n+" recorded bets: confidence "+w.conf+"%, accuracy "+w.acc+"%."};
   }
   var under=rows.filter(function(r){return r.state==="under";});
   if(under.length){ var u=under[0];
-    return {tone:"weak", text:"Back yourself on <b>"+esc(u.label)+"</b> \u2014 you scored "+u.acc+"% but bet only ~"+u.conf+"%. Bet higher when you know it; under-betting drags your calibration down too."};
+    return {tone:"weak", text:"Review <b>"+esc(u.label)+"</b>. In these "+u.n+" recorded bets: confidence "+u.conf+"%, accuracy "+u.acc+"%."};
   }
-  return {tone:"clean", text:"Calibrated and clean \u2014 no overconfident modules, nothing flagged. Keep the habit: play today's <b>Daily Run</b> to hold your streak and nudge readiness."};
+  return {tone:"clean", text:confidenceSummary(d)+" Optional practice is available through the Library and Daily Run."};
 }
 function studyReport(back){
-  let rp=0; try{ rp=readinessPct(); }catch(e){}
+  const rp=compatibilityProgress(),progress=gameProgressView();
   const touched=Object.keys(MASTERY).filter(k=>MASTERY[k]>0);
   const sortedDesc=touched.slice().sort((a,b)=>masteryPct(b)-masteryPct(a));
   const strong=sortedDesc.slice(0,3);
   const weak=sortedDesc.slice().reverse().filter(k=>strong.indexOf(k)<0).slice(0,3);
   const bar=(k,col)=>`<div class="srrow"><span class="srk">${esc(MODLABEL[k]||k)}</span><span class="srbar"><span class="srfill" style="width:${masteryPct(k)}%;background:${col}"></span></span><span class="srp" style="color:${col}">${masteryPct(k)}%</span></div>`;
-  const strongHTML=strong.length?strong.map(k=>bar(k,"var(--money)")).join(""):`<div class="riempty">Answer Pop Quizzes during a run to build mastery.</div>`;
+  const strongHTML=strong.length?strong.map(k=>bar(k,"var(--money)")).join(""):`<div class="riempty">No topics with game progress yet.</div>`;
   const weakHTML=weak.length?weak.map(k=>bar(k,"var(--magenta)")).join(""):"";
   const missed=(G&&G.missedThisRun)||[];
   const missHTML=missed.length?missed.map(o=>{
       const q=o.q||{}; const correct=(q.choices&&q.choices[q.answer]!=null)?q.choices[q.answer]:"";
       const ex=q.explain?String(q.explain):""; const exShort=ex.length>210?ex.slice(0,210).replace(/\s+\S*$/,"")+"\u2026":ex;
       return `<div class="srmiss"><div class="srq">${esc(q.q||"")}</div><div class="sra"><span class="sracheck">\u2713</span> ${esc(correct)}</div>${exShort?`<div class="srx">${esc(exShort)}</div>`:""}<div class="srmod">${esc(MODLABEL[q.source]||q.source||o.mk||"")}</div></div>`;
-    }).join(""):`<div class="srclean">\u2713 Clean run \u2014 you missed no Pop Quizzes. Sharp.</div>`;
+    }).join(""):`<div class="srclean">No missed Pop Quiz questions are listed for this run.</div>`;
   let due=0; try{ if(window.ACEDCore) due=ACEDCore.review.count(); }catch(e){}
   var nba=nextBestAction();
   var nbaBtn = due ? '<button class="act play nbabtn" id="srNBA">REVIEW DUE \u00b7 '+due+' \u2192</button>'
                    : '<button class="act play nbabtn" id="srNBA">DAILY RUN \u2192</button>';
   showModal(`<h2 style="color:var(--cyan)">STUDY REPORT</h2>
-    <div class="srhdr"><span class="srbig">${rp}%</span><span class="srbiglbl">READINESS</span></div>
-    <div class="srbarwide"><span class="srfill" style="width:${rp}%;background:var(--cyan)"></span></div>
+    ${progressHTML(progress)}<p class="help">${GAME_PROGRESS_SCOPE}</p>
     <div class="nba nba-${nba.tone}"><div class="nbak">NEXT BEST ACTION</div><div class="nbat">${nba.text}</div>${nbaBtn}</div>
     ${calibGridHTML()}
-    <div class="rilbl gold" style="margin-top:14px">STRONGEST MODULES</div>${strongHTML}
-    ${weakHTML?`<div class="rilbl mag">FOCUS NEXT \u00b7 WEAKEST MODULES</div>${weakHTML}`:""}
+    <div class="rilbl gold" style="margin-top:14px">HIGHER GAME PROGRESS</div>${strongHTML}
+    ${weakHTML?`<div class="rilbl mag">LOWER GAME PROGRESS</div>${weakHTML}`:""}
     <div class="rilbl cyan">MISSED THIS RUN \u00b7 ${missed.length}</div>${missHTML}
     <div class="shopbar" style="gap:8px;flex-wrap:wrap">${due?`<button class="tbtn" id="srReview" style="color:var(--magenta);border-color:var(--magenta);padding:12px 14px">REVIEW DUE \u00b7 ${due} \u2192</button>`:""}<button class="act play" id="srClose">CLOSE</button></div>`);
   $("srClose").onclick=()=>{ if(typeof back==="function"){ back(); } else { hideModal(); if(G&&!G.busy)render(); } };
@@ -2448,7 +2800,7 @@ function win(reopen){
   const _w=PACK.win||{};
   const _wBody=String(_w.body||"You beat all four "+V.yrs+" and every boss. You ended with ${money} and a hand-built engine.").replace("${money}","$"+G.money);
   showModal(`<h2 style="color:var(--gold)">${esc(_w.title||"RUN CLEARED")}</h2><p>${esc(_wBody)}</p>
-  <p class="help">${esc(_w.note||"Every joker you stacked and every bet you placed pushed your own material further into memory. Start another run and push your mastery higher.")}</p>
+  <p class="help">${GAME_END_SCOPE}</p>
   <div class="shopbar" style="gap:8px;flex-wrap:wrap"><button class="tbtn" id="goEndless" style="padding:12px 14px;color:var(--magenta);border-color:var(--magenta)">CONTINUE · ENDLESS \u25b8</button><button class="tbtn" id="winReport" style="padding:12px 14px;color:var(--cyan);border-color:var(--cyan)">STUDY REPORT</button><button class="act play" id="again">NEW RUN</button></div>`);
   $("again").onclick=start;
   $("goEndless").onclick=function(){ G.endless=true; hideModal(); nextBlind(); toast("Endless — targets keep climbing."); };
@@ -2465,11 +2817,11 @@ function lose(t,m,reopen){
   try{ if(window.ACEDVault) ACEDVault.event("run_end",{outcome:"loss",score:G.score,ante:G.ante}); }catch(e){}
   sfx.lose(); }
   let rev=0; try{ if(window.ACEDCore) rev=ACEDCore.review.count(); }catch(e){}
-  const ready=readinessPct();
+  const ready=gameProgressView();
   showModal(`<h2 style="color:var(--red)">${t}</h2><p>${m}</p>
-    <div class="winrow" style="border-color:var(--cyan)"><div class="wt" style="color:var(--cyan)">YOU KEPT EVERYTHING THAT MATTERS</div>
-      <div class="wd">Readiness <b style="color:var(--cyan)">${ready}%</b> is banked. <b style="color:var(--cyan)">${UNLOCKED.size}</b> joker${UNLOCKED.size!==1?'s':''} in your codex${rev?` \u00b7 <b style="color:var(--cyan)">${rev}</b> question${rev!==1?'s':''} queued in Review to crush next run`:""}. Furthest <b style="color:var(--gold)">Ante ${BEST_ANTE||G.ante}</b>.</div></div>
-    <p class="help">Roguelikes are won by losing first. Your codex carries over \u2014 the next run starts sharper.</p>
+    <div class="winrow" style="border-color:var(--cyan)"><div class="wt" style="color:var(--cyan)">GAME RUN SUMMARY</div>
+      <div class="wd">${esc(ready.text)} <b style="color:var(--cyan)">${UNLOCKED.size}</b> joker${UNLOCKED.size!==1?'s':''} in your codex${rev?` \u00b7 <b style="color:var(--cyan)">${rev}</b> question${rev!==1?'s':''} queued in Review`:""}. Furthest <b style="color:var(--gold)">Ante ${BEST_ANTE||G.ante}</b>.</div></div>
+    <p class="help">${GAME_END_SCOPE}</p>
     <div class="shopbar" style="gap:8px;flex-wrap:wrap"><button class="tbtn" id="loseReport" style="color:var(--cyan);border-color:var(--cyan);padding:12px 14px">STUDY REPORT</button><button class="tbtn" id="loseReview" style="color:var(--magenta);border-color:var(--magenta);padding:12px 14px">REVIEW MISSES</button><button class="act play" id="again">RUN IT BACK \u2192</button></div>`);
   $("again").onclick=start;
   const lr=$("loseReview"); if(lr)lr.onclick=()=>{ if(typeof launchReview==="function") launchReview(); };
@@ -2491,11 +2843,11 @@ function endRunSummary(reopen){
     if(G.score>BEST_SCORE){BEST_SCORE=G.score;ACED_STORE.set("bestScore",BEST_SCORE);}
     if(window.ACEDSocial&&window.ACEDSocial.recordRun){try{window.ACEDSocial.recordRun({score:G.score,section:SECTION_TAG,ante:G.ante,streak:STREAK,bossesDefeated:Math.max(0,G.ante-1)});}catch(e){}}
   }
-  const r=readinessPct();
+  const r=gameProgressView();
   const bestLine=`<div class="help" style="font-size:13px;color:var(--gold);margin-top:6px">${BEST_SCORE>0?"BEST $"+BEST_SCORE+" \u00b7 ":""}FURTHEST ANTE ${Math.max(BEST_ANTE,G.ante)}</div>`;
   showModal(`<h2 style="color:var(--gold)">RUN COMPLETE</h2>
     <p>You ended in <b style="color:var(--gold)">Ante ${G.ante}</b> with a score of <b style="color:var(--money)">$${G.score}</b> and ${G.jokers.length} joker${G.jokers.length!==1?'s':''} in play.</p>
-    <div class="help" style="font-size:17px;color:var(--cyan)">Readiness <b style="color:var(--cyan)">${r}%</b> is saved — it carries into your next run.</div>
+    <div class="help" style="font-size:17px;color:var(--cyan)">${esc(r.text)}</div><p class="help">${GAME_END_SCOPE}</p>
     ${bestLine}
     <div class="shopbar" style="gap:8px;flex-wrap:wrap">
       <button class="tbtn" id="erReport" style="padding:10px 14px;color:var(--cyan);border-color:var(--cyan)">STUDY REPORT</button>
@@ -2512,7 +2864,7 @@ function endRunSummary(reopen){
 }
 function confirmEndRun(){
   showModal(`<h2 style="color:var(--magenta)">END RUN?</h2>
-    <p>Your <b style="color:var(--cyan)">readiness</b> and best score are saved. Your current run — score $${G.score}, your deck and equipped jokers — will be cleared.</p>
+    <p>Your current run — score $${G.score}, your deck and equipped jokers — will be cleared.</p><p class="help">${GAME_END_SCOPE}</p>
     <div class="shopbar" style="gap:8px">
       <button class="act disc" id="erCancel">KEEP PLAYING</button>
       <button class="act play" id="erConfirm" style="background:var(--magenta);border-color:var(--magenta)">END RUN \u25a3</button>
@@ -2524,13 +2876,13 @@ function confirmEndRun(){
 function renderMastery(){
   const body=$("masteryBody");if(!body)return;
   const touched=Object.keys(MASTERY).filter(k=>MASTERY[k]>0);
-  if(!touched.length){body.innerHTML='<div class="mempty">Play hands to build mastery across '+esc(SUBJECT)+' modules.</div>';return;}
+  if(!touched.length){body.innerHTML='<div class="mempty">No topics with game progress yet.</div>';return;}
   const sorted=touched.slice().sort((a,b)=>masteryPct(b)-masteryPct(a));
   const strong=sorted.slice(0,3);
   const weak=sorted.slice(-3).reverse().filter(k=>!strong.includes(k));
-  const row=(k,cls)=>{const p=masteryPct(k);return `<div class="mrow ${cls}"><span class="mk">${k}</span><span class="mlbl">${MODLABEL[k]||k}</span><span class="mbar"><span class="mfl" style="width:${p}%"></span></span><span class="mnum">${p}</span></div>`;};
-  let html='<div class="mh strong">STRONGEST</div>'+strong.map(k=>row(k,"strong")).join("");
-  if(weak.length)html+='<div class="mh weak">WEAKEST</div>'+weak.map(k=>row(k,"weak")).join("");
+  const row=(k,cls)=>{const p=masteryPct(k);return `<div class="mrow ${cls}"><span class="mk">${esc(k)}</span><span class="mlbl">${esc(MODLABEL[k]||k)}</span><span class="mbar"><span class="mfl" style="width:${p}%"></span></span><span class="mnum">${p}</span></div>`;};
+  let html='<div class="mh strong">HIGHER GAME PROGRESS</div>'+strong.map(k=>row(k,"strong")).join("");
+  if(weak.length)html+='<div class="mh weak">LOWER GAME PROGRESS</div>'+weak.map(k=>row(k,"weak")).join("");
   body.innerHTML=html;
 }
 // ===== READINESS METER (v6) =====
@@ -2538,36 +2890,111 @@ function readinessPct(){
   // CC-3: exam-weighted readiness. Average mastery within each blueprint area (across ALL
   // its modules, so untouched modules drag coverage down), then weight areas by emphasis.
   const W=(PACK.blueprintWeights)||{F1:.25,F2:.25,F3:.25,F4:.25};
-  const areas={};
+  const areas=Object.create(null);
   ALLMODS.forEach(k=>{const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(masteryPct(k));});
   let tot=0,wsum=0;
   Object.keys(W).forEach(a=>{const arr=areas[a];if(!arr||!arr.length)return;const avg=arr.reduce((s,v)=>s+v,0)/arr.length;tot+=W[a]*avg;wsum+=W[a];});
   return wsum?Math.min(100,Math.round(tot/wsum)):0;
 }
+// Transient views only. Legacy counters and arithmetic above are not evidence
+// of recall, and remain unchanged for game mechanics and compatibility events.
+const GAME_PROGRESS_SCOPE="Game progress increases through cards, answers and game rewards. It is not a measure of recall or a prediction of test performance.";
+const GAME_END_SCOPE="Game progress is tracked separately from recorded question answers. Storage and sync may be unavailable; see recording details for submitted answers.";
+const CONFIDENCE_SCOPE="From the currently available confidence-bet history for this pack, up to the latest 400 records. This does not include every practice route or prove unaided recall.";
+function viewData(o,key){
+  if(!o||(typeof o!=="object"&&typeof o!=="function"))return null;
+  try{const d=Object.getOwnPropertyDescriptor(o,key);return d&&Object.prototype.hasOwnProperty.call(d,"value")?d:null;}catch(e){return null;}
+}
+function weightView(){
+  const field=viewData(PACK,"blueprintWeights");
+  if(!field)return null;
+  const w=field.value;
+  if(!w||typeof w!=="object"||Array.isArray(w))return null;
+  try{
+    if(Object.getPrototypeOf(w)!==Object.prototype&&Object.getPrototypeOf(w)!==null)return null;
+    if(Object.getOwnPropertySymbols(w).length)return null;
+    const keys=Object.getOwnPropertyNames(w);
+    if(!keys.length||keys.some(k=>{const d=viewData(w,k);return !d||!d.enumerable||typeof d.value!=="number"||!Number.isFinite(d.value)||d.value<0;}))return null;
+    const areas=[...new Set(Object.keys(MODLABEL).map(k=>k.split(".")[0]))];
+    if(!areas.length||areas.some(a=>{const d=viewData(w,a);return !d||d.value<=0;}))return null;
+    return w;
+  }catch(e){return null;}
+}
+function gameProgressView(){
+  if(!weightView())return {value:null,text:"Aggregate not available for this pack."};
+  let p;try{p=readinessPct();}catch(e){return {value:null,text:"Aggregate not available for this pack."};}
+  return typeof p==="number"&&Number.isFinite(p)&&p>=0&&p<=100?
+    {value:p,text:p+"% GAME PROGRESS"}:{value:null,text:"Aggregate not available for this pack."};
+}
+function compatibilityProgress(){
+  // Preserve the old numeric event field for inert ordinary inputs, without
+  // evaluating unsupported accessors or object coercion hooks to fill a view.
+  const field=viewData(PACK,"blueprintWeights");
+  if(!field){if("blueprintWeights" in PACK)return 0;return readinessPct();}
+  const w=field.value;
+  if(w==null)return readinessPct();
+  if(typeof w!=="object")return 0;
+  try{
+    if(Object.getPrototypeOf(w)!==Object.prototype&&Object.getPrototypeOf(w)!==null)return 0;
+    if(Object.getOwnPropertyNames(w).some(k=>{const d=viewData(w,k);return !d||typeof d.value!=="number";}))return 0;
+    return readinessPct();
+  }catch(e){return 0;}
+}
+function progressHTML(view){
+  return view.value===null?'<p class="help">'+view.text+'</p>':
+    '<div class="srhdr"><span class="srbig">'+view.value+'%</span><span class="srbiglbl">GAME PROGRESS</span></div><div class="srbarwide"><span class="srfill" style="width:'+view.value+'%;background:var(--cyan)"></span></div>';
+}
+function confidenceSummary(d){
+  return (d.n?"Recorded confidence answers: "+d.n+". Correct: "+d.k+"/"+d.n+" ("+d.acc+"%).":"No recorded confidence answers to display.")+
+    " "+CONFIDENCE_SCOPE+(d.omitted?" Some stored entries could not be summarized.":"");
+}
+function runnableQuestion(q){
+  const prompt=viewData(q,"q"),choices=viewData(q,"choices"),answer=viewData(q,"answer");
+  if(!prompt||typeof prompt.value!=="string"||!prompt.value.trim()||!choices||!Array.isArray(choices.value)||
+    !answer||!Number.isInteger(answer.value)||answer.value<0||answer.value>=choices.value.length||choices.value.length<2)return false;
+  for(let i=0;i<choices.value.length;i++){const d=viewData(choices.value,String(i));if(!d||typeof d.value!=="string"||!d.value.trim())return false;}
+  for(const key of ["source","explain"]){
+    const d=viewData(q,key);
+    if(!d){if(key in q)return false;}
+    else if(d.value!=null&&typeof d.value!=="string")return false;
+  }
+  return true;
+}
+function practiceEligibility(){
+  const pool=[];
+  if(Array.isArray(QBANK))for(let i=0;i<QBANK.length;i++){const d=viewData(QBANK,String(i));if(d&&runnableQuestion(d.value))pool.push(d.value);}
+  const progress=gameProgressView(),generic=progress.value===null,label=generic?"PRACTICE QUESTIONS":"PRACTICE TEST";
+  if(pool.length<5)return {allowed:false,pool,label,reason:"At least 5 valid questions are needed for practice."};
+  if(!generic&&progress.value<60&&_ownsSection!==true)return {allowed:false,pool,label,reason:"Practice unlocks at 60% game progress or through existing owned access."};
+  return {allowed:true,pool,label,reason:""};
+}
 // Map aced-core's calibration % to a letter grade for the share card (null if no data yet).
-function calibGrade(){try{if(window.ACEDCore){var s=ACEDCore.calibration.summary();if(s&&s.n>0&&s.pct!=null){var p=s.pct;return p>=90?"A":p>=80?"A\u2212":p>=70?"B":p>=60?"C":"D";}}}catch(e){}return null;}
+function calibGrade(){const s=calibData();if(s.n){const p=s.pct;return p>=90?"A":p>=80?"A\u2212":p>=70?"B":p>=60?"C":"D";}return null;}
 function liveStreak(){try{if(window.ACEDCore){return ACEDCore.streak.get().current||0;}}catch(e){}return STREAK;}
-function shareCardArgs(){return {score:G.score,streak:liveStreak(),section:SECTION_TAG,bossesDefeated:Math.max(0,G.ante-1),readiness:readinessPct(),fyReached:G.ante,calib:calibGrade()};}
+function shareCardArgs(){return {score:G.score,streak:liveStreak(),section:SECTION_TAG,bossesDefeated:Math.max(0,G.ante-1),readiness:gameProgressView().value,fyReached:G.ante,calib:calibGrade(),calibCount:calibData().n};}
 function renderReadiness(){
-  const p=readinessPct();const f=$("rFill"),t=$("rPct");if(f)f.style.width=p+"%";if(t)t.textContent=p+"%";
+  const view=gameProgressView(),p=view.value;const f=$("rFill"),t=$("rPct");
+  if(f)f.style.width=p===null?"":p+"%";
+  const progressBar=$("progressBar");if(progressBar)progressBar.hidden=p===null;
+  if(t)t.textContent=p===null?view.text:p+"%";
   const cov=$("coverageRow");
-  if(cov){ const total=ALLMODS.length; const touched=ALLMODS.filter(k=>(MASTERY[k]||0)>0).length;
+  if(cov){ const total=ALLMODS.length; const touched=ALLMODS.filter(k=>(ownValue(MASTERY,k,0)||0)>0).length;
     const wk=weakestModule(); const wkl=wk?(MODLABEL[wk]||wk):"\u2014";
-    cov.innerHTML=`COVERAGE <b>${touched}/${total}</b> modules \u00b7 weakest: <span class="wk">${esc(wkl)}</span>`; }
+    cov.innerHTML=`Topics with game progress: <b>${touched}/${total}</b> \u00b7 Lowest game progress: <span class="wk">${esc(wkl)}</span>`; }
   const gm=$("gateMock"),gr=$("gateReady");
   // Paid owners get the Mock immediately (no 60% grind); everyone else unlocks it at 60% readiness.
-  const mockAvail = (p>=60) || (typeof _ownsSection!=="undefined" && _ownsSection===true);
-  if(gm){if(mockAvail){gm.className="open";gm.textContent="\u2705 MOCK TEST";gm.onclick=function(){launchMockExam();};}else{gm.className="lk";gm.onclick=null;gm.textContent="\ud83d\udd12 MOCK TEST (60%)";}}
-  if(gr){if(p>=90){gr.className="open";gr.textContent="\u2b50 MASTERED";if(!G._readyShown){G._readyShown=true;callout("MASTERED!","var(--gold)");confettiBurst();}}else{gr.className="lk";gr.textContent="\ud83d\udd12 MASTERED (90%)";}}
+  const practice=practiceEligibility();
+  if(gm){gm.className=practice.allowed?"open":"lk";gm.disabled=!practice.allowed;gm.textContent=practice.allowed?practice.label:practice.reason;gm.onclick=practice.allowed?function(){launchMockExam();}:null;}
+  if(gr){gr.hidden=p===null;if(p!==null&&p>=90){gr.className="open";gr.textContent="GAME MILESTONE";if(!G._readyShown){G._readyShown=true;callout("GAME MILESTONE","var(--gold)");confettiBurst();}}else{gr.className="lk";gr.textContent="GAME MILESTONE (90%)";}}
   try{renderCalibration();}catch(e){}
 }
-function confettiBurst(){for(let i=0;i<5;i++)setTimeout(()=>callout("\u2728 MASTERED \u2728","var(--gold)"),i*250);sfx.boom();}
+function confettiBurst(){for(let i=0;i<5;i++)setTimeout(()=>callout("GAME MILESTONE","var(--gold)"),i*250);sfx.boom();}
 // ===== v9: per-module readiness report (Stronger / Comparable / Weaker) =====
 // Mirrors the real CPA score report: each module is rated vs a passing
 // candidate, with a plain-English calibration line and targeted drills for the
 // three weakest modules. A drill is a short MCQ set from that module; missed
 // items flow into the REVIEW (spaced-repetition) queue via runQuiz.
-function moduleStatus(p){ return p>=75?{w:"STRONGER",c:"strong"}:p>=50?{w:"COMPARABLE",c:"comp"}:{w:"WEAKER",c:"weak"}; }
+function moduleStatus(p){ return p>=75?{w:"HIGHER GAME PROGRESS",c:"strong"}:p>=50?{w:"MID GAME PROGRESS",c:"comp"}:{w:"LOWER GAME PROGRESS",c:"weak"}; }
 function drillModule(modKey){
   const bank=(QBANK||[]).filter(function(q){return q.source===modKey;});
   if(!bank.length){toast("No questions in "+(MODLABEL[modKey]||modKey)+" yet.");return;}
@@ -2578,35 +3005,27 @@ function drillModule(modKey){
   runQuiz({title:"DRILL \u00b7 "+(MODLABEL[modKey]||modKey),kind:"drill",questions:qs});
 }
 function readinessReport(){
-  const overall=readinessPct();
-  let calLine="Answer a few Pop Quizzes to start measuring your calibration \u2014 how well your confidence matches your accuracy.";
-  try{ if(window.ACEDCore){ const s=ACEDCore.calibration.summary();
-    if(s&&s.n>0&&s.pct!=null){
-      const q=s.pct>=80?"well-calibrated \u2014 your confidence tracks your accuracy":s.pct>=60?"fairly calibrated":"not yet calibrated \u2014 your confidence doesn't match your accuracy";
-      calLine="Calibration <b>"+s.pct+"%</b> ("+q+"). Accuracy <b>"+s.accuracy+"%</b> across "+s.n+" answer"+(s.n!==1?"s":"")+".";
-    }
-  } }catch(e){}
-  const areas={}; ALLMODS.forEach(function(k){const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(k);});
+  const overall=compatibilityProgress(),progress=gameProgressView(),practice=practiceEligibility();
+  const calLine=confidenceSummary(calibData());
+  const areas=Object.create(null); ALLMODS.forEach(function(k){const a=k.split(".")[0];(areas[a]||(areas[a]=[])).push(k);});
   let body="";
   Object.keys(areas).sort().forEach(function(a){
     body+='<div class="rrarea">'+esc(a)+' \u00b7 '+areas[a].length+' modules</div>';
     areas[a].forEach(function(k){
-      const p=masteryPct(k); const st=moduleStatus(p); const touched=(MASTERY[k]||0)>0;
+      const p=masteryPct(k); const st=moduleStatus(p); const touched=(ownValue(MASTERY,k,0)||0)>0;
       body+='<div class="rrrow"><span class="rrk">'+esc(k)+'</span><span class="rrlbl">'+esc(MODLABEL[k]||k)+'</span><span class="rrbar"><span class="rrfill '+st.c+'" style="width:'+p+'%"></span></span><span class="rrp">'+p+'%</span><span class="rrbadge '+(touched?st.c:"weak")+'">'+(touched?st.w:"NOT STARTED")+'</span></div>';
     });
   });
   const weak3=ALLMODS.slice().sort(function(a,b){return masteryPct(a)-masteryPct(b);}).slice(0,3);
   const drillBtns=weak3.map(function(k){return '<button class="act" data-drill="'+esc(k)+'">DRILL '+esc(MODLABEL[k]||k)+'</button>';}).join("");
-  const mockOpen=overall>=60;
-  const headMsg=overall>=90?"Mastered \u2014 you've covered the material.":overall>=60?"On track. The Mock is unlocked \u2014 keep lifting your weaker areas.":"Building up. Reach 60% to unlock the Mock; 90% means mastered.";
-  const headColor=overall>=90?"var(--gold)":overall>=60?"var(--money)":"var(--amber)";
-  showModal('<h2 style="color:var(--cyan)!important;text-shadow:0 0 8px var(--cyan)!important">READINESS REPORT</h2>'+
-    '<div style="text-align:center;margin:4px 0 8px"><div style="font-family:\'Press Start 2P\';font-size:24px;color:'+headColor+'">'+overall+'%</div><div class="help" style="margin-top:4px">'+headMsg+'</div></div>'+
+  const mockOpen=practice.allowed;
+  showModal('<h2 style="color:var(--cyan)!important;text-shadow:0 0 8px var(--cyan)!important">GAME PROGRESS REPORT</h2>'+
+    progressHTML(progress)+'<p class="help">'+GAME_PROGRESS_SCOPE+'</p>'+
     '<p class="help" style="text-align:center">'+calLine+'</p>'+
-    '<div style="font-family:\'Press Start 2P\';font-size:7px;color:var(--grey);text-align:center;margin:8px 0 2px">STRONGER \u00b7 COMPARABLE \u00b7 WEAKER &nbsp;(vs a passing candidate)</div>'+
+    '<div class="help" style="text-align:center">TOPIC GAME PROGRESS</div>'+
     '<div class="rrtable">'+body+'</div>'+
-    '<div class="winrow" style="border-color:var(--magenta);margin-top:12px"><div class="wt" style="color:var(--magenta)">DRILL YOUR 3 WEAKEST</div><div class="wd">Short MCQ sets from where you\'re weakest \u2014 missed items go to REVIEW.</div><div class="shopbar" style="margin-top:8px;flex-wrap:wrap">'+drillBtns+'</div></div>'+
-    '<div class="shopbar" style="margin-top:10px;gap:8px"><button class="act" id="rrReview">REVIEW MISSED</button><button class="act '+(mockOpen?"play":"")+'" id="rrMock"'+(mockOpen?"":" disabled")+'>'+(mockOpen?"MOCK TEST":"MOCK (60%)")+'</button><button class="act" id="rrClose">CLOSE</button></div>');
+    '<div class="winrow" style="border-color:var(--magenta);margin-top:12px"><div class="wt" style="color:var(--magenta)">LOWEST GAME PROGRESS</div><div class="wd">Optional short practice sets. See recording details for submitted answers.</div><div class="shopbar" style="margin-top:8px;flex-wrap:wrap">'+drillBtns+'</div></div>'+
+    '<div class="shopbar" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="act" id="rrReview">REVIEW MISSED</button><button class="act '+(mockOpen?"play":"")+'" id="rrMock"'+(mockOpen?"":" disabled")+'>'+(mockOpen?practice.label:practice.reason)+'</button><button class="act" id="rrClose">CLOSE</button></div>');
   document.querySelectorAll("[data-drill]").forEach(function(el){el.onclick=function(){drillModule(el.dataset.drill);};});
   const rv=$("rrReview"); if(rv)rv.onclick=function(){ launchReview(); };
   const rm=$("rrMock"); if(rm&&mockOpen)rm.onclick=function(){ launchMockExam(); };
@@ -2638,7 +3057,7 @@ function codexView(){
   showModal(`<h2 style="color:var(--gold)">JOKER CODEX \u00b7 ${n}/${ALLJK.length}</h2>
     ${nemHTML}
     <div class="cxsection">TREATMENTS \u00b7 editions unique to ACED</div>
-    <p style="font-size:14px;margin:2px 0 8px;color:var(--grey)">A <b style="color:var(--gold)">Treatment</b> transforms whatever a Joker already does, scaling off systems unique to ACED \u2014 how deep into a round you are, your mastery, your hot streak, how wide your board is, and pure chance. Find them pre-applied in the shop (about 1 Joker in 5) or apply your own with a <b>Wildcard Pack</b>.</p>
+    <p style="font-size:14px;margin:2px 0 8px;color:var(--grey)">A <b style="color:var(--gold)">Treatment</b> transforms whatever a Joker already does, scaling off systems unique to ACED \u2014 how deep into a round you are, topic game progress, your hot streak, how wide your board is, and pure chance. Find them pre-applied in the shop (about 1 Joker in 5) or apply your own with a <b>Wildcard Pack</b>.</p>
     <div class="codexgrid">${treatCards}</div>
     <div class="cxsection">JOKERS \u00b7 ${n}/${ALLJK.length} unlocked</div>
     <p style="font-size:15px;margin-top:2px">Jokers are permanent rule-benders that warp how your hands score \u2014 the engine you build a run around. Unlock them by triggering their condition in play or by acing Pop Quizzes, then stack and order them in the shop to chain their effects.</p>
@@ -2658,12 +3077,14 @@ function sanitizeModalFragment(h){
     USE_PROFILES:{html:true,svg:true}
   });
 }
+let accountView=null,manualOperation=null,manualResult=null,manualSigningOut=false;
 function showModal(h){
+  accountView=null;
   var m=$("modal");
   m.replaceChildren(sanitizeModalFragment(h));
   $("overlay").classList.add("show");
 }
-function hideModal(){$("overlay").classList.remove("show");$("modal").classList.remove("qmodal");}
+function hideModal(){accountView=null;$("overlay").classList.remove("show");$("modal").classList.remove("qmodal");}
 // ===== v19: first-run onboarding — teach the loop in plain language, once. =====
 function showIntro(){
   showModal('<div class="imodal"><h2>\uD83C\uDCCF HOW TO PLAY <span style="color:var(--grey,#7fae90);font-weight:400;font-size:12px">\u00b7 30 seconds</span></h2>'
@@ -2695,7 +3116,7 @@ function openInsight(){
   $("modal").classList.add("qmodal");
   function _sync(){ try{var e=$("hInsight");if(e)e.textContent=(G.insight||0);}catch(_){} }
   HAND_LIST.forEach(function(h,idx){ var b=$("ih"+idx); if(b)b.onclick=function(){ if((G.insight||0)<3)return; if(!G.handLevels)G.handLevels={}; var v=G.handLevels[h]||{chips:0,mult:0}; v.chips+=15; v.mult+=1; G.handLevels[h]=v; G.insight-=3; try{callout("\u2191 "+h.toUpperCase()+" LEVELED","var(--gold)");}catch(e){} _sync(); openInsight(); }; });
-  SUIT_LIST.forEach(function(s){ var b=$("is"+s[0]); if(b)b.onclick=function(){ if((G.insight||0)<2)return; var n=0; (G.masterDeck||[]).forEach(function(c){ if(c.el===s[0]&&!c.weakness){ c.v=(c.v||0)+8; n++; } }); (G.hand||[]).forEach(function(c){ if(c.el===s[0]&&!c.weakness) c.v=(c.v||0)+8; }); G.insight-=2; try{callout("\u2191 "+s[1].toUpperCase()+" +8 CHIPS ("+n+" cards)","var(--gold)");}catch(e){} _sync(); try{render();}catch(e){} openInsight(); }; });
+  SUIT_LIST.forEach(function(s){ var b=$("is"+s[0]); if(b)b.onclick=function(){ if((G.insight||0)<2)return; var n=0; new Set((G.masterDeck||[]).concat(G.hand||[])).forEach(function(c){ if(c.el===s[0]&&!c.weakness){ c.v=(c.v||0)+8; n++; } }); G.insight-=2; try{callout("\u2191 "+s[1].toUpperCase()+" +8 CHIPS ("+n+" cards)","var(--gold)");}catch(e){} _sync(); try{render();}catch(e){} openInsight(); }; });
   var ic=$("iClose"); if(ic)ic.onclick=function(){ hideModal(); };
 }
 
@@ -2709,7 +3130,7 @@ const STARTER_DOCTRINES=(function(){
 })();
 function start(){hideModal();G=freshGame();
   G.jokers=STARTER_DOCTRINES.map(id=>ALLJK.find(j=>j.id===id)).filter(Boolean);
-  MASTERY=ACED_STORE.get("mastery",{});window._ACED_STATE.mastery=MASTERY;UNLOCKED=new Set(STARTER_UNLOCKS);G._shopDelta=0;G._readyShown=false;
+  MASTERY=ACED_STORE.get("mastery",{});window._ACED_STATE.mastery=MASTERY;UNLOCKED=new Set([...UNLOCKED,...STARTER_UNLOCKS,...savedUnlockedIds()]);G._shopDelta=0;G._readyShown=false;
   rollVoucherOffer();
   try{ if(window.ACEDCore) ACEDCore.analytics.track("run_start",{pack:(PACK&&PACK.id)||null}); }catch(e){}
   startBlind();$("game").style.display="block";G.busy=false;
@@ -2728,31 +3149,176 @@ $("mute").onclick=()=>{if(window.ACEDFX){const next=!ACEDFX.isMuted();ACEDFX.set
 // --- v9: accounts + cloud sync UI. The button is hidden unless window.ACED_API_URL is set,
 //     so an undeployed build shows nothing. ACEDAccount (aced-account.js) does the real work. ---
 function acctShort(e){ if(!e)return ""; var n=String(e).split("@")[0]; return n.length>11?n.slice(0,10)+"\u2026":n; }
+const MANUAL_COPY={
+  pending:"Sign-in confirmation is pending. No new manual sync request was started.",
+  refused:"Sign-in could not be completed here. No new manual sync request was started.",
+  held:"Manual sync is held by the account guard. No new manual sync request was started.",
+  unconfirmed:"Manual sync availability could not be confirmed. No new request was started.",
+  unavailable:"Manual sync is unavailable in this build or session. No new request was started.",
+  eligible:"Manual sync can be attempted. No manual sync result for this page session.",
+  busy:"Waiting for an existing manual request to finish. No additional request was started."
+};
+function manualEligibility(){
+  const a=window.ACEDAccount,c=window.ACEDCore;
+  try{
+    if(!a||typeof a.isSignedIn!=="function")return "unconfirmed";
+    const signed=a.isSignedIn();
+    if(signed===false){manualSigningOut=false;return "signedout";}
+    if(signed!==true)return "unconfirmed";
+    if(typeof a.signInPending!=="function")return "unconfirmed";
+    const pending=a.signInPending();if(pending===true)return "pending";if(pending!==false)return "unconfirmed";
+    if(typeof a.signInNotice!=="function")return "unconfirmed";
+    const notice=a.signInNotice();if(typeof notice==="string"&&notice)return "refused";if(notice!==null)return "unconfirmed";
+    if(typeof a.syncHeld!=="function")return "unconfirmed";
+    const held=a.syncHeld();if(held===true)return "held";if(held!==false)return "unconfirmed";
+    if(manualSigningOut||typeof a.token!=="function")return "unconfirmed";
+    const token=a.token();if(typeof token!=="string"||!token)return "unconfirmed";
+    if(typeof window.ACED_API_URL!=="string"||!window.ACED_API_URL.trim())return "unavailable";
+    if(!c||!c.sync||typeof c.sync.isEnabled!=="function"||typeof c.sync.push!=="function"||typeof c.sync.pull!=="function")return "unconfirmed";
+    const enabled=c.sync.isEnabled();if(enabled===false)return "unavailable";if(enabled!==true)return "unconfirmed";
+    return "eligible";
+  }catch(e){return "unconfirmed";}
+}
+function syncMetadata(result,unknownReason){
+  const r=resultMetadata(result);if(!r)return null;
+  for(const k of ["ok","synced","applied"])if(Object.prototype.hasOwnProperty.call(r,k)&&typeof r[k]!=="boolean")return null;
+  if(!unknownReason&&Object.prototype.hasOwnProperty.call(r,"reason")&&typeof r.reason!=="string")return null;
+  if(typeof r.error==="function"||typeof r.error==="symbol"||typeof r.error==="bigint")return null;
+  return r;
+}
+function uploadCopy(result){
+  const r=syncMetadata(result),unknown="Upload: acknowledgment could not be confirmed.";
+  if(!r)return unknown;
+  const reason=Object.prototype.hasOwnProperty.call(r,"reason"),failure=!!r.error||r.ok===false||r.synced===false;
+  if((r.ok===true||r.synced===true)&&(failure||reason))return unknown;
+  if(r.reason==="no-endpoint")return "Upload: not attempted because sync is unavailable.";
+  if(failure)return "Upload: not confirmed by the server.";
+  return r.ok===true&&!reason?"Upload: server acknowledged this sync request.":unknown;
+}
+function downloadCopy(result){
+  const r=syncMetadata(result,true),unknown="Download: application could not be confirmed.";
+  if(!r)return unknown;
+  if(r.applied===true){
+    if(Object.prototype.hasOwnProperty.call(r,"reason")||r.error||r.ok===false||r.synced===false)return unknown;
+    return "Download: server response applied on this page. Durable saving of all progress was not verified.";
+  }
+  if(r.applied!==false||r.ok===true||r.synced===true)return unknown;
+  const reasons={
+    "no-endpoint":"not attempted because sync is unavailable.",
+    stale:"no newer response was applied.",empty:"no usable response was applied.",
+    "pack-mismatch":"response was not applied because its pack did not match.",
+    "review-state-held":"response was held to preserve local Review history.",
+    "review-serialization-failed":"response was held because Review data could not be safely written.",
+    "review-storage-unavailable":"response was held because Review storage was unavailable."
+  };
+  return "Download: "+(typeof r.reason==="string"&&Object.prototype.hasOwnProperty.call(reasons,r.reason)?reasons[r.reason]:"no application was confirmed.");
+}
+function observeManualDeparture(){
+  if(manualResult&&!manualResult.matches())manualResult=null;
+  if(manualOperation&&!manualOperation.matches())manualOperation.invalidate();
+}
+function refreshManualView(announce){
+  observeManualDeparture();
+  const view=accountView;
+  if(!view||!$("overlay").classList.contains("show"))return;
+  const eligible=manualEligibility(),matching=view.matches();
+  const pending=manualOperation;
+  const result=matching&&(pending?pending.matches()?pending:null:manualResult);
+  const header=pending?MANUAL_COPY.busy:result?"Last manual attempt on this page:":MANUAL_COPY[eligible]||MANUAL_COPY.unconfirmed;
+  view.status.textContent=header;
+  view.upload.textContent=result&&result.upload||"";
+  view.download.textContent=result&&result.download||"";
+  view.upload.hidden=!view.upload.textContent;view.download.hidden=!view.download.textContent;
+  view.button.disabled=!!pending||!matching||eligible!=="eligible";
+  if(announce&&matching)announceRecording([header,view.upload.textContent,view.download.textContent].filter(Boolean).join(" "));
+}
+function invalidateManualSignout(){
+  manualSigningOut=true;manualResult=null;
+  if(manualOperation)manualOperation.invalidate();
+  refreshManualView(false);
+}
+function startManualSync(view){
+  observeManualDeparture();
+  if(accountView!==view||!view.matches()||manualOperation||manualEligibility()!=="eligible"){refreshManualView(false);return;}
+  // The opaque token stays inside this private closure, never DOM/storage/logs.
+  const account=window.ACEDAccount,core=window.ACEDCore,sync=core.sync,pack=PACK,packId=PACK.id;
+  let token;try{token=account.token();}catch(e){refreshManualView(false);return;}
+  if(typeof token!=="string"||!token){refreshManualView(false);return;}
+  let departed=false;
+  const op={
+    upload:"",download:"",
+    invalidate(){departed=true;},
+    matches(){
+      try{return !departed&&window.ACEDAccount===account&&window.ACEDCore===core&&core.sync===sync&&
+        window.ACED_PACK===pack&&PACK.id===packId&&manualEligibility()==="eligible"&&account.token()===token;
+      }catch(e){return false;}
+    }
+  };
+  manualResult=null;manualOperation=op;refreshManualView(true);
+  function settle(){
+    const valid=manualOperation===op&&op.matches();
+    if(valid)manualResult={matches:op.matches,upload:op.upload,download:op.download};
+    if(manualOperation===op)manualOperation=null;
+    refreshManualView(valid);
+  }
+  function pushFailed(){
+    op.upload="Upload: request did not complete; acknowledgment could not be confirmed.";
+    op.download="Download: not attempted.";settle();
+  }
+  function pullFailed(){
+    op.download="Download: request did not complete; application could not be confirmed.";settle();
+  }
+  let pushed;
+  try{pushed=sync.push();}catch(e){pushFailed();return;}
+  Promise.resolve(pushed).then(function(result){
+    if(manualOperation!==op||!op.matches()){settle();return;}
+    op.upload=uploadCopy(result);refreshManualView(true);
+    if(manualOperation!==op||!op.matches()){settle();return;}
+    let pulled;try{pulled=sync.pull();}catch(e){pullFailed();return;}
+    return Promise.resolve(pulled).then(function(value){op.download=downloadCopy(value);settle();},pullFailed);
+  },pushFailed);
+}
 function renderAcctBtn(){
+  observeManualDeparture();
   var b=$("acctBtn"); if(!b)return;
   if(!window.ACED_API_URL||!window.ACEDAccount){ b.style.display="none"; return; }
   b.style.display="";
-  if(ACEDAccount.isSignedIn()){ var em=ACEDAccount.email(); b.textContent="\u2713 "+(acctShort(em)||"SYNCED"); b.title=em?("Synced as "+em+" \u2014 tap for account"):"Signed in \u00b7 progress syncs across your devices"; }
-  else { b.textContent="SIGN IN"; b.title="Sign in to save progress and sync across your devices"; }
+  let signed=false;try{signed=ACEDAccount.isSignedIn()===true;}catch(e){}
+  if(signed){ var em=ACEDAccount.email(); b.textContent="ACCOUNT"+(acctShort(em)?" "+acctShort(em):""); b.title="Signed in. Open account and sync status."; }
+  else { b.textContent="SIGN IN"; b.title="Sign in to an account."; }
 }
 function openAcctModal(){
   if(!window.ACEDAccount)return;
-  if(ACEDAccount.isSignedIn()){
-    var em=ACEDAccount.email()||"this device";
+  observeManualDeparture();
+  const eligibility=manualEligibility();
+  if(eligibility!=="signedout"){
+    let signed=false,em="";try{signed=ACEDAccount.isSignedIn()===true;em=ACEDAccount.email()||"this device";}catch(e){}
     showModal('<h2>ACCOUNT</h2>'+
-      '<p class="help">Signed in as <b>'+esc(em)+'</b>. Your readiness, calibration, streak and missed-question queue sync across devices automatically.</p>'+
+      (signed?'<p class="help">Signed in as <b>'+esc(em)+'</b>. Sign-in does not confirm that progress was saved or synchronized.</p>':"")+
+      '<div class="recording-status"><p id="acctStatus"></p><p id="acctUpload" hidden></p><p id="acctDownload" hidden></p></div>'+
       '<div class="help" style="border-top:1px solid var(--green-dim);margin-top:10px;padding-top:10px"><b style="color:var(--gold)">PUBLIC LEADERBOARD</b><br>Pick a handle to appear on the public board, or stay hidden. Change or remove it anytime.</div>'+
       '<input id="lbHandle" type="text" maxlength="24" autocomplete="off" placeholder="handle (2-24 chars)" style="width:100%;box-sizing:border-box;font-family:VT323;font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin:8px 0">'+
       '<div class="shopbar" style="gap:8px;flex-wrap:wrap"><button class="act play" id="lbOptin">SHOW ME ON THE BOARD</button><button class="act" id="lbOptout">HIDE ME</button></div>'+
-      '<div class="shopbar" style="gap:8px;flex-wrap:wrap;margin-top:8px"><button class="act play" id="acctSync">SYNC NOW</button><button class="act" id="acctOut">SIGN OUT</button><button class="act" id="acctAllOut">SIGN OUT EVERYWHERE</button><button class="act" id="acctClose">CLOSE</button></div>');
+      '<div class="shopbar account-actions" style="gap:8px;flex-wrap:wrap;margin-top:8px"><button class="act play" id="acctSync" disabled>SYNC NOW</button><button class="act" id="acctOut">SIGN OUT</button><button class="act" id="acctAllOut">SIGN OUT EVERYWHERE</button><button class="act" id="acctClose">CLOSE</button></div>');
+    const account=window.ACEDAccount,pack=PACK;
+    let shownToken;try{shownToken=account.token();}catch(e){}
+    const view={status:$("acctStatus"),upload:$("acctUpload"),download:$("acctDownload"),button:$("acctSync"),
+      matches(){try{return window.ACEDAccount===account&&window.ACED_PACK===pack&&
+        typeof shownToken==="string"&&shownToken!==""&&account.token()===shownToken;}catch(e){return false;}}};
+    accountView=view;refreshManualView(false);
     $("acctClose").onclick=hideModal;
-    $("acctOut").onclick=function(){ ACEDAccount.signOut(); renderAcctBtn(); hideModal(); toast("Signed out - play continues on this device."); };
-    $("acctSync").onclick=function(){ toast("Syncing..."); try{ ACEDCore.sync.push().then(function(){return ACEDCore.sync.pull();}).then(function(){ toast("Progress synced."); }).catch(function(){ toast("Sync unavailable right now."); }); }catch(e){ toast("Sync unavailable right now."); } };
+    $("acctOut").onclick=function(){
+      invalidateManualSignout();
+      let signedOut;try{signedOut=ACEDAccount.signOut();}catch(e){manualSigningOut=false;refreshManualView(false);return;}
+      renderAcctBtn();hideModal();toast("Signed out - play continues on this device.");
+      Promise.resolve(signedOut).then(function(){manualSigningOut=false;refreshManualView(false);},function(){manualSigningOut=false;refreshManualView(false);});
+    };
+    $("acctSync").onclick=function(){startManualSync(view);};
     $("lbOptin").onclick=function(){ var h=($("lbHandle").value||"").trim(); if(h.length<2){ toast("Pick a handle of at least 2 characters."); return; } var b=$("lbOptin"); if(b)b.disabled=true; ACEDAccount.leaderboardOptIn(h).then(function(r){ if(b)b.disabled=false; if(r&&r.handle){ toast("You're on the board as "+r.handle+"."); } else { toast((r&&r.error)||"Could not update the board."); } }).catch(function(){ if(b)b.disabled=false; toast("Leaderboard unavailable right now."); }); };
     $("lbOptout").onclick=function(){ var b=$("lbOptout"); if(b)b.disabled=true; ACEDAccount.leaderboardOptOut().then(function(){ if(b)b.disabled=false; toast("Hidden from the public board."); }).catch(function(){ if(b)b.disabled=false; toast("Leaderboard unavailable right now."); }); };
-    $("acctAllOut").onclick=function(){ toast("Signing out all devices..."); ACEDAccount.signOutEverywhere().then(function(){ renderAcctBtn(); hideModal(); toast("Signed out on all devices."); }).catch(function(){ renderAcctBtn(); hideModal(); toast("Signed out on this device."); }); };
+    $("acctAllOut").onclick=function(){ invalidateManualSignout();toast("Signing out all devices..."); ACEDAccount.signOutEverywhere().then(function(){ manualSigningOut=false;renderAcctBtn(); hideModal(); toast("Signed out on all devices."); }).catch(function(){ manualSigningOut=false;renderAcctBtn(); hideModal(); toast("Signed out on this device."); }); };
   } else {
-    showModal('<h2>SIGN IN</h2><p class="help">Enter your email and we\'ll send a one-tap sign-in link \u2014 no password. Signing in saves your progress and syncs phone \u2194 laptop.</p><input id="acctEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="width:100%;box-sizing:border-box;font-family:\'VT323\';font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin-bottom:10px"><div class="shopbar"><button class="act play" id="acctSend">SEND LINK</button><button class="act" id="acctCancel">CANCEL</button></div>');
+    showModal('<h2>SIGN IN</h2><p class="help">Sign in to an account. Progress sync depends on availability. Enter your email and we\'ll send a one-tap sign-in link \u2014 no password.</p><input id="acctEmail" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" style="width:100%;box-sizing:border-box;font-family:\'VT323\';font-size:18px;padding:11px;background:#04090a;color:var(--white);border:1px solid var(--green-dim);text-align:center;margin-bottom:10px"><div class="shopbar"><button class="act play" id="acctSend">SEND LINK</button><button class="act" id="acctCancel">CANCEL</button></div>');
     $("acctCancel").onclick=hideModal;
     var send=function(){ var v=($("acctEmail").value||"").trim(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ toast("Enter a valid email address."); return; } var s=$("acctSend"); if(s)s.disabled=true; ACEDAccount.signIn(v).then(function(){ hideModal(); toast("Check your email for your sign-in link."); }).catch(function(err){ if(s)s.disabled=false; toast((err&&err.message)||"Could not send the link."); }); };
     $("acctSend").onclick=send;
@@ -2787,9 +3353,9 @@ showModal(`<h2>ACED — ${esc(PACK.name)}</h2>
   <p>It\u2019s a roguelike deckbuilder. Build real poker hands whose cards are tagged to ${esc(SUBJECT)} topics, then score <b style="color:var(--cyan)">chips</b> \u00d7 <b style="color:var(--magenta)">mult</b> to beat each ${V.round}\u2019s target.</p>
   <div class="winrow" style="border-color:var(--gold);text-align:left">
     <div class="wt">HOW TO WIN</div>
-    <div class="wd"><b style="color:var(--amber)">Each ${V.round}:</b> reach the target before you run out of hands.<br><b style="color:var(--amber)">Each run:</b> clear all ${MAXANTE} ${V.yrs}.<br><b style="color:var(--cyan)">The real goal:</b> every hand and answer builds <b style="color:var(--cyan)">Readiness</b>, saved across runs. Win or lose the run, you leave sharper.</div>
+    <div class="wd"><b style="color:var(--amber)">Each ${V.round}:</b> reach the target before you run out of hands.<br><b style="color:var(--amber)">Each run:</b> clear all ${MAXANTE} ${V.yrs}.<br>${GAME_PROGRESS_SCOPE}</div>
   </div>
-  <p class="help">Clear a ${V.round} and you face a <b style="color:var(--magenta)">Pop Quiz</b> \u2014 a real MCQ with a LOW / MED / HIGH confidence bet. <b style="color:var(--gold)">Jokers</b> are permanent rule-benders that warp scoring; buy more in the shop between ${V.round}s. You start with <b>${_starterNames}</b> and $${STARTER_MONEY}.</p>
+  <p class="help">Clear a ${V.round} for an <b style="color:var(--magenta)">optional Pop Quiz</b> \u2014 a real MCQ with a LOW / MED / HIGH confidence bet. <b style="color:var(--gold)">Jokers</b> are permanent rule-benders that warp scoring; buy more in the shop between ${V.round}s. You start with <b>${_starterNames}</b> and $${STARTER_MONEY}. Full casual-game access remains available without answering questions.</p>
   <button class="act play" id="begin">START</button>`);
 $("begin").onclick=function(){start();};
 
@@ -2802,11 +3368,11 @@ function rulesCardHTML(){
       <div class="rulebox"><div class="rt">CARDS</div><div class="rd">Every card has a real <b>rank + suit</b> and carries one ${esc(SUBJECT)} <b>topic tag</b>. The rank supplies base chips; pairs, straights, flushes and stronger poker hands add chips and mult.</div></div>
       <div class="rulebox"><div class="rt">PLAY HAND</div><div class="rd">Click 1&ndash;5 cards to select, then <b>PLAY HAND</b>. Score = <b>chips &times; mult</b>. Each play uses one <b>HAND</b>.</div></div>
       <div class="rulebox"><div class="rt">JOKERS</div><div class="rd">Permanent rule-benders that warp how hands score (<em>Study Streak, Snowball, Echo</em>&hellip;). Stack and <b>order</b> them to chain effects. Buy more in the shop.</div></div>
-      <div class="rulebox"><div class="rt">MASTERY</div><div class="rd">Every card carries a <b>module tag</b> (${esc(MODULE_RANGE)}). Playing it raises mastery in that module. The right-hand rail shows your strong vs <b>weak</b> areas.</div></div>
-      <div class="rulebox"><div class="rt">POP QUIZ</div><div class="rd">After each ${V.round}, a live <b>${esc(SUBJECT)} question</b> from your weakest module. Bet <em>LOW / MED / HIGH</em> confidence &mdash; right answer pays cash + mastery, wrong adds a Weakness Card.</div></div>
+      <div class="rulebox"><div class="rt">GAME PROGRESS</div><div class="rd">Every card carries a <b>module tag</b> (${esc(MODULE_RANGE)}). Playing it raises topic game progress, not measured knowledge. The rail shows higher and lower game progression.</div></div>
+      <div class="rulebox"><div class="rt">POP QUIZ</div><div class="rd">Optional <b>${esc(SUBJECT)} questions</b> follow rounds, selected by existing game-counter rules. Bet <em>LOW / MED / HIGH</em> confidence. Correct answers earn cash and game progress. Only HIGH-confidence misses can add a Weakness Card. Full casual-game access remains available.</div></div>
       <div class="rulebox"><div class="rt">SHOP</div><div class="rd">Between ${V.round}s, spend cash on <b>Jokers</b>, <b>consumables</b>, card finishes and other deck upgrades. Unused hands earn $1 each.</div></div>
     </div>
-    <div class="winrow"><div class="wt">HOW TO WIN</div><div class="wd">Clear all ${V.round}s through <b>the final boss</b>. Along the way, push <b>READINESS</b> (top bar) toward <b>90%</b> &mdash; the meta-goal beyond any single run.</div></div>
+    <div class="winrow"><div class="wt">HOW TO WIN</div><div class="wd">Clear all ${V.round}s through <b>the final boss</b>. Applicable 60%/90% game-progress thresholds are practice access and game milestones, not educational mastery.</div></div>
     <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="act" id="replayTut">REPLAY TUTORIAL</button>
       <button class="act play" id="closeRules">GOT IT</button>
@@ -2823,13 +3389,13 @@ $("helpBtn").onclick=()=>openRules();
    5 steps. Anchors a glowing spotlight on a real UI element + a coach card.
    Persists "tutorial_done" so it only fires once. ? HELP > REPLAY TUTORIAL re-runs it. */
 const TUT_STEPS=[
-  {sel:null, title:"WELCOME TO ACED", body:"This is <b>"+esc(SUBJECT)+" practice</b> in disguise. You'll answer questions from your own material &mdash; wrapped in a roguelike card game that tracks how well you actually know it. Here's the 30-second version."},
+  {sel:null, title:"WELCOME TO ACED", body:"Build a <b>"+esc(SUBJECT)+" card-game scoring engine</b>. Questions are optional. Game progress is not a measure of recall or a prediction of test performance. Recorded question answers describe only the available submitted-answer history. Here's the short tour."},
   {sel:"#hand", title:"1 · YOUR HAND", body:"These are real <b>playing cards</b> with ranks and suits. Each one also carries a "+esc(SUBJECT)+" <b>topic tag</b>, so the poker decisions you make drive what you study. Tap up to 5 cards."},
   {sel:"#play", title:"2 · BUILD A COMBO, CLEAR THE ROUND", body:"Your selected cards form a <b>combo scored like a poker hand</b>: <b>chips &times; mult</b>. Tap <b>HANDS</b> anytime to see the patterns. Each <b>"+V.round+"</b> has a score <b>target</b> &mdash; hit it before you run out of <b>hands</b> and you've cleared it."},
   {sel:"#jokerRail", title:"3 · JOKERS BEND THE RULES", body:"<em>Jokers</em> are permanent rule-benders (Study Streak, Snowball, Echo&hellip;) that warp how your hands score. Stack them in the <b>shop</b> between rounds \u2014 and order them, since many chain off their neighbours \u2014 to build a scoring engine."},
-  {sel:"#masteryPanel", title:"4 · WEAK MODULES = STUDY TARGETS", body:"Every card raises <b>mastery</b> in its "+esc(SUBJECT)+" module ("+esc(MODULE_RANGE)+"). The rail shows your <b>strong vs weak</b> areas &mdash; your study targets, hiding in plain sight."},
-  {sel:"#readiness", title:"5 · POP QUIZZES", body:"After each "+V.round+", a live <b>"+esc(SUBJECT)+" question</b> hits from your <em>weakest</em> module. Bet <b>LOW / MED / HIGH</b> confidence: a right answer pays cash + mastery; a wrong one becomes a card you'll review later."},
-  {sel:null, title:"THIS IS YOUR STUDY PLAN", body:"It isn't just a game. Every hand, quiz, and review feeds your <b>READINESS</b> and <b>CALIBRATION</b> &mdash; the real signals of how well you know it. Hit <b>90% readiness</b> and you've covered the material, and the <b>MOCK TEST</b> unlocks at 60%.<br><br>Now pick a couple of cards and <b>PLAY HAND</b> to start your first "+V.round+". (<b>? HELP</b> has the full rules.)"}
+  {sel:"#masteryPanel", title:"4 · TOPIC GAME PROGRESS", body:GAME_PROGRESS_SCOPE},
+  {sel:"#readiness", title:"5 · OPTIONAL POP QUIZZES", body:"Optional "+esc(SUBJECT)+" questions use the existing game-counter selection rules. Bet LOW / MED / HIGH confidence. Correct answers earn game rewards; see recording details for submitted answers."},
+  {sel:null, title:"PLAY OR PRACTICE", body:"Full casual-game access remains available without answering questions. Recorded confidence bets describe only that available question history, not every route or unaided recall.<br><br>Pick cards and PLAY HAND to start your first "+V.round+". ? HELP has the full rules."}
 ];
 let _tutIdx=0;
 function _anchorTo(sel){
@@ -2905,11 +3471,8 @@ window.addEventListener("resize", ()=>{ if($("tutBackdrop").classList.contains("
 
 // --- readiness-panel calibration mini-bar ---
 function renderCalibration(){
-  if(!window.ACEDCore)return; let s; try{s=ACEDCore.calibration.summary();}catch(e){return;}
-  const row=$("calibRow"),fill=$("calibFill"),pct=$("calibPct"); if(!row)return;
-  if(!s||s.pct==null||s.n<3){row.style.display="none";return;}
-  const coach=s.pct>=80?"SHARP":s.pct>=60?"STEADY":s.pct>=40?"LOOSE":"OVERCONFIDENT";
-  row.style.display="flex"; if(fill)fill.style.width=s.pct+"%"; if(pct)pct.textContent=s.pct+"% \u00b7 "+coach;
+  const s=calibData(),row=$("calibRow"),pct=$("calibPct");if(!row)return;
+  row.style.display=s.n?"block":"none";if(pct)pct.textContent=confidenceSummary(s);
 }
 // --- topbar streak badge (reads the Daily Run streak) ---
 function updateStreakBadge(){
@@ -2971,39 +3534,54 @@ const ACEDPay=(function(){
 function runQuiz(opts){
   const qs=(opts&&opts.questions)||[]; if(!qs.length){toast("Nothing to quiz right now.");return;}
   let idx=0, correct=0, sel=null, locked=false;
+  const totals=[0,0,0,0,0,0],missedTotals=[0,0,0,0,0,0];
+  const bucket=[0,1,2,3,4,4,5];
+  const labels=["recorded in this browser","progress updates accepted in this browser with historical fields unknown",
+    "recorded for this page session only","progress updates accepted for this page session with historical fields unknown","not recorded","unconfirmed"];
+  function breakdown(counts){return '<ul>'+counts.map((n,i)=>n?'<li>'+n+' '+labels[i]+'</li>':"").join("")+'</ul>';}
   function paintQ(){
     const q=qs[idx]; sel=null; locked=false;
-    const choices=q.choices.map((c,i)=>`<div class="qch" data-qc="${i}" role="button" tabindex="0" aria-label="Answer ${"ABCD"[i]}: ${esc(c)}"><span class="ql">${"ABCD"[i]}</span><span>${esc(c)}</span></div>`).join("");
+    const choices=Array.prototype.map.call(q.choices,(c,i)=>`<div class="qch" data-qc="${i}" role="button" tabindex="0" aria-label="Answer ${"ABCD"[i]}: ${esc(c)}"><span class="ql">${"ABCD"[i]}</span><span>${esc(c)}</span></div>`).join("");
     showModal(`<div class="qmodal" style="border:0;padding:0"><h2>${esc(opts.title)} — ${idx+1}/${qs.length}</h2>
       <div style="text-align:center;color:var(--grey);font-family:'VT323';font-size:14px;margin-bottom:6px">${esc(MODLABEL[q.source]||q.source||SUBJECT)}</div>
       <div class="qtext">${esc(q.q)}</div><div class="qchoices">${choices}</div>
-      <div class="shopbar" id="qfoot"><button class="act play" id="qSubmit" disabled>SUBMIT</button></div></div>`);
+      <div class="shopbar recording-foot" id="qfoot"><button class="act play" id="qSubmit" disabled>SUBMIT</button></div></div>`);
     $("modal").classList.add("qmodal");
     document.querySelectorAll("[data-qc]").forEach(el=>el.onclick=()=>{ if(locked)return; sel=+el.dataset.qc; sfx.sel(); document.querySelectorAll("[data-qc]").forEach(x=>x.classList.remove("sel")); el.classList.add("sel"); const sb=$("qSubmit"); if(sb)sb.disabled=false; });
     $("qSubmit").onclick=lockQ;
   }
   function lockQ(){
     if(sel===null||locked)return; locked=true;
+    const continueFocus=document.activeElement&&document.activeElement.id==="qSubmit";
     const q=qs[idx]; const ok=sel===q.answer; if(ok)correct++;
+    let recorded=6;
     try{ if(window.ACEDProgress) _progress(ACEDProgress.event("question_answered",{correct:ok,module:q.source||null})); }catch(e){}
-    try{ if(window.ACEDCore){ ACEDCore.review.record(q,ok); ACEDCore.analytics.track((opts.kind||"quiz")+"_item",{module:q.source||null,correct:ok}); } }catch(e){}
+    try{ if(window.ACEDCore){ recorded=recordingClass(ACEDCore.review.record(q,ok)); ACEDCore.analytics.track((opts.kind||"quiz")+"_item",{module:q.source||null,correct:ok}); } }catch(e){}
+    totals[bucket[recorded]]++;if(!ok)missedTotals[bucket[recorded]]++;
     try{ if(window.ACEDNemesis) ACEDNemesis.onAudit(q.source||null,ok); }catch(e){}
     if(ok)sfx.coin(); else sfx.lose();
     document.querySelectorAll("[data-qc]").forEach(el=>{const i=+el.dataset.qc; el.classList.remove("sel"); el.classList.add("locked"); if(i===q.answer)el.classList.add("correct"); else if(i===sel)el.classList.add("wrong"); el.onclick=null;});
     const last=idx===qs.length-1;
-    const foot=$("qfoot"); if(foot)foot.innerHTML=`<div class="qexpl"><b>${ok?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div><button class="act play" id="qNext">${last?'SEE RESULTS \u2192':'NEXT \u2192'}</button>`;
+    const foot=$("qfoot"); if(foot)foot.innerHTML=`<div class="qexpl"><b>${ok?'CORRECT':'INCORRECT'}.</b> ${esc(q.explain)}</div>${recordingHTML({review:recorded,library:null})}<button class="act play" id="qNext">${last?'SEE RESULTS \u2192':'NEXT \u2192'}</button>`;
     const nx=$("qNext"); if(nx)nx.onclick=()=>{ if(last)finish(); else {idx++;paintQ();} };
+    if(continueFocus&&nx)nx.focus();
+    announceRecording("Review: "+RECORDING_COPY[recorded]);
   }
   function finish(){
+    const doneFocus=document.activeElement&&document.activeElement.id==="qNext";
     const pct=Math.round(correct/qs.length*100);
     try{ if(window.ACEDProgress && (opts.kind==="review"||opts.kind==="mock")) _progress(ACEDProgress.event(opts.kind+"_done",{pct:pct,correct:correct,n:qs.length})); }catch(e){}
     try{ if(window.ACEDCore) ACEDCore.analytics.track((opts.kind||"quiz")+"_completed",{score:pct,n:qs.length,correct:correct}); }catch(e){}
     updateReviewBadge();
     showModal(`<div class="qmodal" style="border:0;padding:0"><h2>${esc(opts.title)} — RESULT</h2>
       <div style="text-align:center;font-family:'Press Start 2P';font-size:20px;color:${pct>=75?'var(--money)':pct>=50?'var(--amber)':'var(--red)'};margin:14px 0">${correct}/${qs.length} \u00b7 ${pct}%</div>
-      <p class="help" style="text-align:center">${pct>=75?'Strong. Real '+esc(SUBJECT)+' MCQ testlets pass around this level.':'Keep going \u2014 missed items are now queued in REVIEW.'}</p>
+      <p class="help" style="text-align:center">This is your score on these practice questions, not a prediction of test performance. ${pct<75?'Keep going. Review recording details are below.':''}</p>
+      <div class="recording-status"><p>Review updates for ${qs.length} submitted answers:</p>${breakdown(totals)}
+        ${qs.length>correct?'<p>Of '+(qs.length-correct)+' missed answers:</p>'+breakdown(missedTotals):""}<p>${RECORDING_SCOPE}</p></div>
       <div class="shopbar"><button class="act play" id="qDone">DONE</button></div></div>`);
     $("qDone").onclick=()=>{ hideModal(); try{renderReadiness();}catch(e){} if(G&&!G.busy)render(); };
+    if(doneFocus)$("qDone").focus();
+    announceRecording("Review updates for "+qs.length+" submitted answers. "+totals.map((n,i)=>n?n+" "+labels[i]+".":"").filter(Boolean).join(" "));
   }
   paintQ();
 }
@@ -3011,8 +3589,9 @@ function runQuiz(opts){
 // --- REVIEW: resurface missed questions ---
 function launchReview(){
   if(!QBANK||!QBANK.length){toast("Question bank is still loading \u2014 try again in a moment.");return;}
-  let q=[]; try{ if(window.ACEDCore) q=ACEDCore.review.queue(QBANK,10); }catch(e){ console.error("Review queue failed:",e); }
-  if(!q.length){toast("No missed questions yet \u2014 they'll appear here after you miss some in a Pop Quiz.");return;}
+  if(!window.ACEDCore||!ACEDCore.review){toast("Review is unavailable right now. Please try again.");return;}
+  let q=[]; try{ q=ACEDCore.review.queue(QBANK,10); }catch(e){toast("Review is unavailable right now. Please try again.");return;}
+  if(!q.length){toast("No questions due right now.");return;}
   try{ if(window.ACEDCore) ACEDCore.analytics.track("review_started",{n:q.length}); }catch(e){}
   runQuiz({title:"REVIEW",kind:"review",questions:q});
 }
@@ -3052,15 +3631,21 @@ function explanationsView(){
 
 // --- MOCK TEST: spread sample across modules (unlocked at 60% readiness) ---
 function launchMockExam(){
+  const initial=practiceEligibility();
+  if(!initial.allowed){toast(initial.reason);return;}
+  const identity=viewData(PACK,"id");
   ACEDPay.gate("The Mock Test", !!ACEDPay.cfg.lockMock, function(){
-    const pool=(QBANK||[]).slice();
-    if(pool.length<5){toast("Not enough questions for a mock test yet.");return;}
+    const currentIdentity=viewData(PACK,"id");
+    if(window.ACED_PACK!==PACK||!identity||!currentIdentity||identity.value!==currentIdentity.value){toast("Practice material changed. Reopen practice from the current pack.");return;}
+    const current=practiceEligibility();
+    if(!current.allowed){toast(current.reason);return;}
+    const pool=current.pool.slice();
     for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=pool[i];pool[i]=pool[j];pool[j]=t;}
-    const byMod={}; pool.forEach(q=>{(byMod[q.source]=byMod[q.source]||[]).push(q);});
+    const byMod=Object.create(null); pool.forEach(q=>{(byMod[q.source]=byMod[q.source]||[]).push(q);});
     const mods=Object.keys(byMod); const target=Math.min(20,pool.length); let picks=[],mi=0,guard=0;
     while(picks.length<target && guard<target*50){ const m=mods[mi%mods.length]; if(byMod[m]&&byMod[m].length)picks.push(byMod[m].shift()); mi++; guard++; }
     try{ if(window.ACEDCore) ACEDCore.analytics.track("mock_exam_started",{n:picks.length}); }catch(e){}
-    runQuiz({title:"MOCK TEST",kind:"mock",questions:picks});
+    runQuiz({title:current.label,kind:"mock",questions:picks});
   });
 }
 
@@ -3282,7 +3867,7 @@ function _progress(res){
   try{renderCalibration();}catch(e){}
   // v8: career ladder + daily briefing
   try{ const rp=$("rankPill"); if(rp)rp.onclick=function(){ if(!G||!G.busy) briefingView(); }; }catch(e){}
-  try{ const rt=$("rTop"); if(rt)rt.onclick=function(){ if(!G||!G.busy) readinessReport(); }; }catch(e){}
+  try{ const rt=$("rTop"); if(rt){rt.onclick=function(){ if(!G||!G.busy) readinessReport(); };rt.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();rt.onclick();}};} }catch(e){}
   try{ renderRankPill(); }catch(e){}
   try{ if(window.ACEDProgress&&ACEDProgress.onChange) ACEDProgress.onChange(function(){ try{renderRankPill();}catch(e){} }); }catch(e){}
   try{ if(window.ACEDCore) ACEDCore.analytics.track("study_opened",{pack:(PACK&&PACK.id)||null}); }catch(e){}
@@ -3312,9 +3897,9 @@ if(window.ACED_PACK&&window.ACED_PACK.onboarding){ window.ACED_ONBOARDING_OPTS=w
     if(document.getElementById("acedArcadeBanner")) return;
     var b=document.createElement("div");
     b.id="acedArcadeBanner";
-    b.setAttribute("style","position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:9999;max-width:92vw;display:flex;gap:10px;align-items:center;background:#0a160a;border:1px solid #ffb627;color:#ffb627;font-family:'VT323',ui-monospace,monospace;font-size:15px;line-height:1.2;padding:8px 12px;box-shadow:0 0 14px rgba(255,182,39,.25)");
+    b.className="aced-arcade-banner";
     b.innerHTML='&#9733; Pick another run in the <a href="library.html" style="color:#5cffea;text-decoration:underline;text-underline-offset:2px">Library</a> or <a href="importer.html" style="color:#5cffea;text-decoration:underline;text-underline-offset:2px">forge a deck</a> from your own notes.'+
-      ' <button type="button" aria-label="Dismiss" style="margin-left:4px;background:transparent;border:1px solid #16291a;color:#5a7058;font-family:inherit;font-size:14px;cursor:pointer;padding:2px 8px">×</button>';
+      ' <button type="button" aria-label="Dismiss Library suggestion">×</button>';
     b.querySelector("button").addEventListener("click",function(){
       try{ localStorage.setItem("aced_library_banner_dismissed","1"); }catch(e){}
       b.parentNode&&b.parentNode.removeChild(b);

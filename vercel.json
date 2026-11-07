@@ -1,4 +1,10 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "cycle-1-security-correctness": false,
+      "fix/question-id-integrity-v2": false
+    }
+  },
   "buildCommand": "node tools/build.js",
   "outputDirectory": "dist",
   "cleanUrls": false,
