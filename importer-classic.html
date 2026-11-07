@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>ACED — Import &amp; Build</title>
-<meta name="description" content="Turn your own material into a playable ACED study pack. Upload a PDF, Word doc, or text file — or paste notes — and get a question set you can play in the browser. Free, nothing uploaded." />
+<meta name="description" content="Read supported structured material from text-based PDF, Word or text files. Review and edit explicit questions and assembled multiple-choice options before play." />
 <link rel="canonical" href="https://acedhq.com/importer-classic.html" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -137,6 +137,17 @@
   details.adv>summary::-webkit-details-marker{display:none}
   details.adv>summary:hover{color:var(--cyan)}
   details.adv[open]>summary{border-bottom:1px solid var(--border);color:var(--cyan)}
+  /* Scoped import/review controls and persistent source-recovery feedback. */
+  .flow input,.flow textarea{box-sizing:border-box;min-width:0;max-width:100%;min-height:44px;border-color:#638b76}
+  .flow .qstem,.flow .qopt{border-color:#638b76}
+  .flow button,.flow .qstem,.flow .qopt,.flow .opt{min-height:44px}
+  .flow .opt{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px;min-width:0}
+  .flow .opt input[type=radio]{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;padding:0}
+  .flow .opt .qopt{box-sizing:border-box;width:100%;min-width:0}
+  .flow button{min-width:44px}
+  .flow button:focus-visible,.flow input:focus-visible,.flow textarea:focus-visible{outline:2px solid #5cffea;outline-offset:2px}
+  #uStatus,#pvMeta,#classic-review{color:#d8f5d8;overflow-wrap:anywhere}
+  #uStatus.err{color:#ffb0a6}
 </style>
 </head>
 <body>
@@ -148,7 +159,7 @@
 
   <section class="hero" id="hero">
     <h1 class="heroh">What are you studying?</h1>
-    <p class="herosub">Upload a file or paste your notes and ACED turns them into a playable question set — then you study by playing. Everything runs in your browser; nothing is uploaded.</p>
+    <p class="herosub">Import supported structured pairs or authored questions from text-based PDF, Word or text files. Review and edit the resulting questions before play. Original files are parsed in your browser; optional sync can include text-bearing study data.</p>
     <div class="choices3">
       <button class="choice" data-go="upload"><span class="ic">&#8593;</span><b>Upload files</b><span class="cd">PDF, Word, or text &rarr; questions</span></button>
       <button class="choice" data-go="paste"><span class="ic">&#9998;</span><b>Paste notes or AI deck</b><span class="cd">Notes, or JSON from any AI &rarr; questions</span></button>
@@ -190,22 +201,22 @@ MATERIAL:
       <input type="file" id="file" accept=".pdf,.txt,.md,.docx,.json" hidden />
       <div class="dropin"><span class="ic">&#8593;</span><b>Drop a file or tap to choose</b><span class="cd">PDF &middot; Word (.docx) &middot; text (.txt, .md) &middot; up to ~20MB</span></div>
     </label>
-    <div class="ustatus" id="uStatus"></div>
+    <div class="ustatus" id="uStatus" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="playbar"><button class="pbtn go" id="uBuild" disabled>&#9881; BUILD QUESTIONS</button></div>
-    <p class="tip">Text is extracted <b>on your device</b> — the file never leaves your browser. Scanned/image-only PDFs have no selectable text to read.</p>
+    <p class="tip">Original files are parsed in your browser. A PDF needs selectable text; arbitrary prose is not automatically understood. Shared links and exports contain the material you choose to share.</p>
   </section>
 
   <section class="flow" id="flowSample" hidden>
     <div class="flowhead"><b>PLAY A SAMPLE</b><button class="mini" data-back>&larr; back</button></div>
     <div class="samples">
       <a class="samp" href="study.html?pack=world-capitals"><b>World Capitals</b><span class="cd">Geography trivia — a quick way to see the game with zero setup</span></a>
-      <a class="samp" href="study.html"><b>Arcade demo</b><span class="cd">General-knowledge quiz — see the game with zero setup</span></a>
+      <a class="samp" href="study.html?pack=world-capitals"><b>Play a sample pack</b><span class="cd">Try the game with the World Capitals sample pack. No upload is needed.</span></a>
     </div>
   </section>
 
   <section class="flow" id="flowPreview" hidden>
     <div class="flowhead"><b>REVIEW YOUR QUESTIONS</b><button class="mini" data-back>&larr; start over</button></div>
-    <div class="pvmeta" id="pvMeta"></div>
+    <div class="pvmeta" id="pvMeta" role="status" aria-live="polite" aria-atomic="true"></div>
     <div class="field" style="margin-top:12px"><label for="packName">PACK NAME</label><input id="packName" placeholder="My study pack" /></div>
     <div id="qlist" class="qlist"></div>
     <div class="playbar">
@@ -218,7 +229,7 @@ MATERIAL:
       <input class="shareurl" id="shareUrl" readonly onclick="this.select()">
       <div class="sharehint" id="shareHint"></div>
     </div>
-    <p class="tip">These drafts come from patterns in your text (definitions, Q&amp;A). Sharper questions and written explanations are the AI-assisted path, arriving with accounts. You can also fine-tune below in the advanced builder.</p>
+    <p class="tip" id="classic-review">Review every question and answer. Only supported structured material is converted; other prose may be left out. Automatically assembled choices are not a test of free recall. You can inspect the extracted text through Back → Paste.</p>
   </section>
 
   <details class="adv"><summary>&#9881; ADVANCED &mdash; hand-build a full deckbuilder pack (modules &middot; elements &middot; cards &middot; doctrines)</summary>
@@ -283,12 +294,12 @@ MATERIAL:
 (function (root) {
   function clean(s) { return String(s || "").replace(/\s+/g, " ").trim(); }
   function shuffle(a, rnd) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor((rnd ? rnd() : Math.random()) * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
-  function uniqBy(arr, key) { var seen = {}, out = []; arr.forEach(function (x) { var k = key(x); if (k && !seen[k]) { seen[k] = 1; out.push(x); } }); return out; }
+  function uniqBy(arr, key) { var seen = new Set(), out = []; arr.forEach(function (x) { var k = key(x); if (k && !seen.has(k)) { seen.add(k); out.push(x); } }); return out; }
   function sample(pool, n, exclude, rnd) {
-    var out = [], used = {}; exclude = exclude || [];
-    exclude.forEach(function (e) { used[clean(e).toLowerCase()] = 1; });
+    var out = [], used = new Set(); exclude = exclude || [];
+    exclude.forEach(function (e) { used.add(clean(e).toLowerCase()); });
     var bag = shuffle(pool, rnd);
-    for (var i = 0; i < bag.length && out.length < n; i++) { var k = clean(bag[i]).toLowerCase(); if (!used[k]) { used[k] = 1; out.push(bag[i]); } }
+    for (var i = 0; i < bag.length && out.length < n; i++) { var k = clean(bag[i]).toLowerCase(); if (!used.has(k)) { used.add(k); out.push(bag[i]); } }
     return out;
   }
   // build a 4-option MCQ from a correct answer + a pool of distractor strings
@@ -334,19 +345,38 @@ MATERIAL:
   /* ---- Pass B: "Term: definition" / "Term — definition" ---- */
   function parseDefinitions(text) {
     var defs = [];
+    function split(line, patterns) {
+      var urls=[],u,re=/https?:\/\/\S+/gi;
+      while((u=re.exec(line)))urls.push([u.index,u.index+u[0].length]);
+      for(var i=0;i<patterns.length;i++){
+        var m;while((m=patterns[i].exec(line))){
+          if(!urls.some(function(r){return m.index>=r[0]&&m.index<r[1];}))
+            return {left:line.slice(0,m.index).trim(),right:line.slice(m.index+m[0].length).trim(),colon:i===1};
+        }
+      }
+      return null;
+    }
+    function unmark(s){return s.replace(/^(?:\*\*|__)/,"").replace(/(?:\*\*|__)$/,"").trim();}
+    function time(s){return /^\d{1,2}:\s*\d{2}(?:\s*[ap]m)?$/i.test(s)||/^\d{1,2}\s*[ap]m$/i.test(s);}
+    var clock="\\d{1,2}(?::[ \\t]*\\d{2}(?:[ \\t]*[ap]m)?|[ \\t]*[ap]m)";
+    var clockRange=new RegExp("^"+clock+"[ \\t]*(?:::|:[ \\t]+|/|=|->|=>|→|—|–|-)[ \\t]*"+clock+"$","i");
     text.split(/\n/).forEach(function (line) {
-      var l = line.trim();
+      var l = line.trim().replace(/^(?:[-*+•]|\d+[.)])\s+/,"");
       if (!l || l.length > 240) return;
       // skip lines that are actually MCQ options or answer/explanation keys
       if (/^[A-Ha-h][.)]\s/.test(l)) return;
-      if (/^(?:answer|ans|correct|explanation|explain|why|rationale)\s*[:.)-]/i.test(l)) return;
-      // Term <sep> definition, where sep is : | — | – | " - " | " = "
-      var m = l.match(/^([^:—–=]{2,60}?)\s*(?::|—|–|=|\s-\s)\s+(.{6,220})$/);
+      if (/^(?:q|question|a|answer|ans|correct|explanation|explain|why|rationale)\s*[:.)-]/i.test(l)) return;
+      if(/^https?:\/\/\S+$/i.test(l)||time(l)||clockRange.test(l))return;
+      var m = split(l,[/::/g,/:[ \t]+/g,/[ \t]+=[ \t]+/g,/[ \t]+->[ \t]+/g,
+        /[ \t]+=>[ \t]+/g,/[ \t]+→[ \t]+/g,/[ \t]+—[ \t]+/g,/[ \t]+–[ \t]+/g,/[ \t]+-[ \t]+/g,/[ \t]+\/[ \t]+/g]);
       if (m) {
-        var term = clean(m[1]).replace(/^\d+[.)]\s*/, "");
-        var def = clean(m[2]);
-        // avoid sentences masquerading as terms (too many words on the left)
-        if (term.split(" ").length <= 6 && def.split(" ").length >= 2) defs.push({ term: term, def: def });
+        var term=unmark(m.left),def=m.right;
+        if(m.colon&&/^(?:spanish|french|german|italian|portuguese|japanese|chinese|mandarin|korean|latin|arabic|russian|hindi|vocab|vocabulary)$/i.test(term)){
+          var inner=split(def,[/[ \t]+\/[ \t]+/g]);if(inner){term=unmark(inner.left);def=inner.right;}
+        }
+        term=clean(term);def=clean(def);
+        if(term&&def&&term.length<=60&&def.length<=220&&term.split(" ").length<=6&&!(time(term)&&time(def)))
+          defs.push({term:term,def:def});
       }
     });
     return uniqBy(defs, function (d) { return d.term.toLowerCase(); });
@@ -393,7 +423,7 @@ MATERIAL:
       if (q2) questions.push(q2);
     });
 
-    // C) cloze (filler, only if room)
+    // C) preserve existing cloze derivation from recognized definitions.
     if (questions.length < cap) {
       parseCloze(text, defs).forEach(function (c) {
         var q3 = mcq(c.sentence, c.term, termPool, rnd);
@@ -550,11 +580,14 @@ window.ACEDShare = (function(){
   function slug(s){return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")||"my-pack";}
   function escq(s){return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
 
+  var fileGeneration=0,pendingText="",previewCurrent=false;
+  function invalidateFile(){fileGeneration++;pendingText="";if($("uBuild"))$("uBuild").disabled=true;}
+  function expirePreview(){previewCurrent=false;if($("playNow"))$("playNow").disabled=true;}
   var SECTIONS=["hero","flowPaste","flowUpload","flowSample","flowPreview"];
   function show(id){ SECTIONS.forEach(function(s){ var el=$(s); if(el) el.hidden=(s!==id); }); try{window.scrollTo({top:0,behavior:"smooth"});}catch(e){window.scrollTo(0,0);} }
 
-  document.querySelectorAll("[data-go]").forEach(function(b){ b.addEventListener("click",function(){ var g=b.getAttribute("data-go"); show("flow"+g.charAt(0).toUpperCase()+g.slice(1)); }); });
-  document.querySelectorAll("[data-back]").forEach(function(b){ b.addEventListener("click",function(){ show("hero"); }); });
+  document.querySelectorAll("[data-go]").forEach(function(b){ b.addEventListener("click",function(){ invalidateFile();expirePreview();var g=b.getAttribute("data-go"); show("flow"+g.charAt(0).toUpperCase()+g.slice(1)); }); });
+  document.querySelectorAll("[data-back]").forEach(function(b){ b.addEventListener("click",function(){ invalidateFile();expirePreview();show("hero"); }); });
 
   var draft=[];
   function validPack(){
@@ -572,30 +605,31 @@ window.ACEDShare = (function(){
     draft.forEach(function(q,i){
       var card=document.createElement("div"); card.className="qc"; card.setAttribute("data-i",i);
       var opts=q.choices.map(function(c,j){
-        return '<label class="opt"><input type="radio" name="ans'+i+'" '+(j===q.answer?"checked":"")+' data-j="'+j+'"><input class="qopt" value="'+escq(c)+'" data-j="'+j+'"></label>';
+        return '<label class="opt"><input type="radio" aria-label="Mark choice '+String.fromCharCode(65+j)+' as correct for question '+(i+1)+'" name="ans'+i+'" '+(j===q.answer?"checked":"")+' data-j="'+j+'"><input class="qopt" aria-label="Choice '+String.fromCharCode(65+j)+' for question '+(i+1)+'" value="'+escq(c)+'" data-j="'+j+'"></label>';
       }).join("");
-      card.innerHTML='<div class="qctop"><span>Q'+(i+1)+'</span><button class="del" title="remove">&#10005;</button></div>'+
-        '<input class="qstem" value="'+escq(q.q)+'">'+opts;
+      card.innerHTML='<div class="qctop"><span>Q'+(i+1)+'</span><button class="del" aria-label="Remove question '+(i+1)+'" title="remove">&#10005;</button></div>'+
+        '<input class="qstem" aria-label="Question '+(i+1)+'" value="'+escq(q.q)+'">'+opts;
       list.appendChild(card);
     });
     list.querySelectorAll(".qc").forEach(function(card){
       var i=+card.getAttribute("data-i");
-      card.querySelector(".qstem").addEventListener("input",function(e){ draft[i].q=e.target.value; });
-      card.querySelectorAll(".qopt").forEach(function(inp){ inp.addEventListener("input",function(e){ draft[i].choices[+e.target.getAttribute("data-j")]=e.target.value; }); });
-      card.querySelectorAll('input[type=radio]').forEach(function(r){ r.addEventListener("change",function(e){ draft[i].answer=+e.target.getAttribute("data-j"); }); });
-      card.querySelector(".del").addEventListener("click",function(){ draft.splice(i,1); renderPreview(); });
+      card.querySelector(".qstem").addEventListener("input",function(e){ invalidateFile();draft[i].q=e.target.value; });
+      card.querySelectorAll(".qopt").forEach(function(inp){ inp.addEventListener("input",function(e){ invalidateFile();draft[i].choices[+e.target.getAttribute("data-j")]=e.target.value; }); });
+      card.querySelectorAll('input[type=radio]').forEach(function(r){ r.addEventListener("change",function(e){ invalidateFile();draft[i].answer=+e.target.getAttribute("data-j"); }); });
+      card.querySelector(".del").addEventListener("click",function(){ invalidateFile();draft.splice(i,1); renderPreview(); });
     });
     var valid=validPack().questions.length;
-    if($("playNow")) $("playNow").disabled=valid<1;
+    if($("playNow")) $("playNow").disabled=valid<1||!previewCurrent;
     if($("dlPack")) $("dlPack").disabled=valid<1;
     if($("sharePack")) $("sharePack").disabled=valid<1;
     var _sb=$("shareBox"); if(_sb) _sb.hidden=true;
   }
   function toPreview(questions,label,title){
+    previewCurrent=true;
     draft=questions.map(function(q){return {q:q.q,choices:q.choices.slice(),answer:q.answer,explain:q.explain||""};});
     var meta=$("pvMeta");
     if(draft.length){ meta.style.color=""; meta.textContent="\u2713 "+draft.length+" question"+(draft.length>1?"s":"")+" from your "+label+". Edit text, mark the correct answer, or delete any \u2014 then play."; }
-    else { meta.style.color="var(--red)"; meta.textContent="Couldn't find clear questions. Paste \"Term: definition\" lines, a numbered question with an \"Answer: B\" key, or valid AI deck JSON (cards/traps) \u2014 or use the advanced builder below."; }
+    else { meta.style.color="var(--red)"; meta.textContent="No playable questions were built. Use explicit pairs with at least two distinct answers, or provide multiple-choice questions with answer keys. Your source is unchanged."; }
     if($("packName")){ if(title){ $("packName").value=title; } else if(!$("packName").value){ $("packName").value=(label==="notes"?"My notes":label==="file"?"My upload":"My pack"); } }
     renderPreview();
     show("flowPreview");
@@ -603,8 +637,9 @@ window.ACEDShare = (function(){
 
   // paste — auto-detects AI deck JSON vs raw notes
   if($("pasteBuild")) $("pasteBuild").addEventListener("click",function(){
+    invalidateFile();
     var txt=$("pasteBox").value||"";
-    if(txt.trim().length<20){ note("Paste a bit more first."); return; }
+    if(!txt.trim()){ note("Paste supported pairs or authored questions first."); return; }
     var res=window.ACEDExtract.fromAny(txt,{cap:60});
     toPreview(res.questions, res.source==="json"?"AI deck":"notes", res.title||"");
   });
@@ -620,14 +655,45 @@ window.ACEDShare = (function(){
   var PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   var PDFWK="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   var MAMMOTH="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js";
+  function pageText(items){
+    if(!Array.isArray(items))throw new Error("unsupported PDF text");
+    var out="",previous=null;
+    function geometry(it){
+      var t=it.transform;
+      if(!Array.isArray(t)||t.length!==6)throw new Error("unsupported PDF geometry");
+      for(var i=0;i<6;i++)if(!Number.isFinite(t[i]))throw new Error("unsupported PDF geometry");
+      if(t[0]<=0||t[3]<=0||Math.abs(t[1])>0.000001||Math.abs(t[2])>0.000001||!Number.isFinite(it.width)||it.width<0)throw new Error("unsupported PDF geometry");
+      return {x:t[4],y:t[5],end:t[4]+it.width};
+    }
+    items.forEach(function(it){
+      if(!it||typeof it.str!=="string")throw new Error("unsupported PDF item");
+      var text=it.str.replace(/\r\n?|\n/g,"\n");
+      if(text){
+        if(previous){
+          var a=geometry(previous.item),b=geometry(it);
+          if(Math.abs(b.y-a.y)>2)out+="\n";
+          else{
+            if(previous.partial)throw new Error("ambiguous multiline PDF fragment");
+            var gap=b.x-a.end;if(gap< -1||gap>24)throw new Error("ambiguous PDF fragment");
+            if(gap>1&&!/\s$/.test(out)&&!/^\s/.test(text))out+=" ";
+          }
+        }
+        out+=text;
+        previous=text.endsWith("\n")?null:{item:it,partial:text.indexOf("\n")>=0};
+      }
+      if(it.hasEOL===true){if(!out.endsWith("\n"))out+="\n";previous=null;}
+    });
+    return out;
+  }
   function extractPdf(file){
     return (window.pdfjsLib?Promise.resolve():loadScript(PDFJS).then(function(){window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFWK;}))
       .then(function(){return file.arrayBuffer();})
       .then(function(buf){return window.pdfjsLib.getDocument({data:buf}).promise;})
       .then(function(pdf){
+        if(!pdf||!Number.isInteger(pdf.numPages)||pdf.numPages<1)throw new Error("unsupported PDF pages");
         var chain=Promise.resolve("");
         for(var p=1;p<=pdf.numPages;p++){ (function(pp){ chain=chain.then(function(acc){
-          return pdf.getPage(pp).then(function(pg){return pg.getTextContent();}).then(function(c){ return acc+c.items.map(function(it){return it.str;}).join(" ")+"\n"; });
+          return pdf.getPage(pp).then(function(pg){return pg.getTextContent();}).then(function(c){ var text=pageText(c.items);return acc+text+(text.endsWith("\n")?"":"\n"); });
         }); })(p); }
         return chain;
       });
@@ -635,39 +701,47 @@ window.ACEDShare = (function(){
   function extractDocx(file){ return (window.mammoth?Promise.resolve():loadScript(MAMMOTH)).then(function(){return file.arrayBuffer();}).then(function(buf){return window.mammoth.extractRawText({arrayBuffer:buf});}).then(function(r){return r.value||"";}); }
   function extractText(file){ var n=(file.name||"").toLowerCase(); if(n.slice(-4)===".pdf")return extractPdf(file); if(n.slice(-5)===".docx")return extractDocx(file); return file.text(); }
 
-  var pendingText="", drop=$("drop"), fileInput=$("file"), uStatus=$("uStatus"), uBuild=$("uBuild");
+  var drop=$("drop"), fileInput=$("file"), uStatus=$("uStatus"), uBuild=$("uBuild");
   function handleFile(file){
+    invalidateFile();expirePreview();var generation=fileGeneration;
+    uStatus.className="ustatus";uStatus.textContent="";
     if(!file) return;
+    if(!/\.(pdf|docx|txt|md|json)$/i.test(file.name||"")){uStatus.className="ustatus err";uStatus.textContent="Choose a PDF, Word document, TXT, Markdown or JSON file.";return;}
     if(file.size>20*1024*1024){ uStatus.className="ustatus err"; uStatus.textContent="That file is over 20MB \u2014 try a smaller one."; return; }
-    uStatus.className="ustatus"; uStatus.textContent="Reading "+file.name+"\u2026"; if(uBuild)uBuild.disabled=true; pendingText="";
-    extractText(file).then(function(text){
-      pendingText=text||"";
-      var words=pendingText.trim().split(/\s+/).filter(Boolean).length;
-      if(words<20){ uStatus.className="ustatus err"; uStatus.textContent="Got very little text from "+file.name+". A scanned/image PDF has no selectable text to read."; return; }
-      uStatus.className="ustatus ok"; uStatus.textContent="\u2713 Read "+file.name+" ("+words+" words). Build your questions."; if(uBuild)uBuild.disabled=false;
-    }).catch(function(){ uStatus.className="ustatus err"; uStatus.textContent="Couldn't read that file. Try a .txt/.docx, or paste the text instead."; });
+    uStatus.className="ustatus"; uStatus.textContent="Reading your file\u2026";
+    Promise.resolve().then(function(){return extractText(file);}).then(function(text){
+      if(generation!==fileGeneration)return;
+      if(typeof text!=="string"||!text.trim())throw new Error("unsupported extracted text");
+      pendingText=text;uStatus.className="ustatus ok";uStatus.textContent="Text is ready. Build and review the supported questions.";if(uBuild)uBuild.disabled=false;
+    }).catch(function(){if(generation!==fileGeneration)return;pendingText="";uStatus.className="ustatus err";uStatus.textContent="This file could not be read as supported text. Your original file is unchanged. Try a text-based PDF, a Word document with explicit pairs, or paste the text.";});
   }
   if(fileInput) fileInput.addEventListener("change",function(e){ handleFile(e.target.files&&e.target.files[0]); });
   if(drop){
     ["dragenter","dragover"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add("drag"); }); });
     ["dragleave","drop"].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove("drag"); }); });
-    drop.addEventListener("drop",function(e){ var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0]; if(f){ if(fileInput)fileInput.value=""; handleFile(f); } });
+    drop.addEventListener("drop",function(e){ var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(fileInput)fileInput.value="";handleFile(f); });
   }
-  if(uBuild) uBuild.addEventListener("click",function(){ if(!pendingText){ note("Choose a file first."); return; } var res=window.ACEDExtract.fromAny(pendingText,{cap:60}); toPreview(res.questions, res.source==="json"?"AI deck":"file", res.title||""); });
+  if(uBuild) uBuild.addEventListener("click",function(){ if(!pendingText||uBuild.disabled){ note("Choose a current file first."); return; }var text=pendingText;invalidateFile();$("pasteBox").value=text;var res=window.ACEDExtract.fromAny(text,{cap:60});toPreview(res.questions,res.source==="json"?"AI deck":"file",res.title||""); });
+  if($("pasteBox"))$("pasteBox").addEventListener("input",function(){invalidateFile();expirePreview();});
+  if($("packName"))$("packName").addEventListener("input",invalidateFile);
 
   // play / download
   if($("playNow")) $("playNow").addEventListener("click",function(){
     var pack=validPack();
-    if(!pack.questions.length){ note("No valid questions yet."); return; }
+    if(!pack.questions.length||!previewCurrent){ note("Build and review your current input before playing."); return; }
     // Save into the personal library so the deck is kept, listed under "Your packs" and tracks progress.
     try{
       if(window.ACEDLibrary){
         var saved=window.ACEDLibrary.save(window.ACEDLibrary.normalize({name:pack.title||pack.name||"My Deck",questions:pack.questions},{id:window.ACEDLibrary.newId(pack.title||pack.name||"My Deck")}));
-        if(saved&&saved.id){ location.href="study.html?pack="+encodeURIComponent(saved.id); return; }
+        if(saved&&saved.id&&window.ACEDLibrary.isPersistent()===true){
+          var readback=window.ACEDLibrary.get(saved.id);
+          if(readback&&readback.id===saved.id&&window.ACEDLibrary.exportText(readback)===window.ACEDLibrary.exportText(saved)&&window.ACEDLibrary.isPersistent()===true){
+            location.href="study.html?pack="+encodeURIComponent(saved.id);return;
+          }
+        }
       }
     }catch(e){}
-    try{ localStorage.setItem("aced:local:customPack",JSON.stringify(pack)); }catch(e){ note("Couldn't save the pack locally."); return; }
-    location.href="study.html?pack=local";
+    $("pvMeta").textContent="This pack is not confirmed saved for the next page. Your editable preview is still here. Download the JSON as a backup before leaving.";
   });
   if($("dlPack")) $("dlPack").addEventListener("click",function(){
     var pack=validPack();
@@ -693,7 +767,7 @@ window.ACEDShare = (function(){
       hint.className="sharehint"+(big?" warn":"");
       hint.innerHTML = big
         ? "&#9888; "+r.count+" questions &mdash; this link is long, and some apps (SMS, a few chat apps) may cut it. For big decks, use <b>DOWNLOAD</b> and host the file instead."
-        : r.count+" questions packed into the link. Anyone who opens it plays instantly &mdash; <b>no signup, nothing stored on a server</b>.";
+        : r.count+" questions packed into the link. Anyone with the link can read its material. Review what you share.";
     }
     window.ACEDShare.copy(r.url, $("sharePack"));
     if(inp){ try{ inp.focus(); inp.select(); }catch(e){} }

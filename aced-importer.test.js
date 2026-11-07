@@ -253,5 +253,13 @@ test("Change input retains an unfinished question-editor edit", () => {
   assert.equal(raw.questions[0].answer, "");
 });
 
-console.log("aced-importer: " + passed + " passed, " + failed + " failed.");
-if (failed) process.exitCode = 1;
+// The aggregate is awaited: both assertion failures and asynchronous rejection
+// must fail this existing CI-invoked entrypoint.
+require("./tools/lib/product-success-s1-tests").run().then(function (result) {
+  result.results.forEach(function (entry) { console.log((entry.ok ? "PASS " : "FAIL ") + entry.name); });
+  console.log("product-success-s1: " + result.passed + " passed, " + result.failed + " failed.");
+  console.log("aced-importer legacy: " + passed + " passed, " + failed + " failed.");
+  if (failed || result.failed) process.exitCode = 1;
+}, function () {
+  console.error("product-success-s1: rejected aggregate"); process.exitCode = 1;
+});
