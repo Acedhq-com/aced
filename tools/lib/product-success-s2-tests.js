@@ -57,6 +57,55 @@ const rec={score:500,correct:3,total:7,glyphs:["g","y","r","k","g","y","k"],cali
 async function run(options={}){
   const read=options.read||disk,results=[];
   async function test(name,fn){try{await fn();results.push({name,ok:true});}catch(e){results.push({name,ok:false,kind:e.name,frame:String(e.stack).split("\n").find(s=>s.includes("product-success-s2-tests.js:"))||""});}}
+  await test("copy: actual initial modal makes the quiz optional and retains full casual access",()=>{
+    const f=runtime({read}),marker='<p class="help">Clear a ',parts=f.modal().split(marker);
+    assert.equal(parts.length,2,"the actual initial help paragraph must be unique");
+    const copy=parts[1].split("</p>")[0];
+    assert.ok(copy.includes('>optional Pop Quiz</b>'));
+    assert.ok(copy.includes("Full casual-game access remains available without answering questions."));
+    assert.equal(f.requests.length,0);
+  });
+  await test("copy: actual rules scope Weakness Cards to HIGH misses and match genuine outcomes",()=>{
+    const f=runtime({read}),marker='<div class="rt">POP QUIZ</div><div class="rd">',parts=f.api.rulesCardHTML().split(marker);
+    assert.equal(parts.length,2,"the actual quiz rule must be unique");
+    const copy=parts[1].split("</div>")[0];
+    assert.ok(copy.includes("Only HIGH-confidence misses can add a Weakness Card."));
+    assert.ok(!copy.includes("misses add a Weakness Card."));
+    for(const tier of ["LOW","MED","HIGH"]){
+      const r=runtime({read});r.api.start();const before=r.api.G.masterDeck.filter(c=>c.weakness).length;
+      const [choice]=r.choices("[data-ach]",[{ach:"1"}]),[confidence]=r.choices("[data-conf]",[{conf:tier}]);
+      r.api.beginAuditQuestion("A.one",r.api.qbank[0],10,true);choice.onclick();confidence.onclick();r.document.getElementById("auditSubmit").onclick();
+      assert.equal(r.api.G.masterDeck.filter(c=>c.weakness).length-before,tier==="HIGH"?1:0);
+      assert.equal(r.api.calibData().n,1);assert.equal(r.api.calibData().k,0);assert.equal(r.requests.length,0);
+    }
+  });
+  await test("copy: actual guided WELCOME separates optional answers from game progress and recall",()=>{
+    const timers=[],f=runtime({read,configureContext(c){c.setTimeout=(fn,delay)=>{timers.push({fn,delay});return timers.length;};}});
+    f.api.start();f.document.getElementById("helpBtn").onclick();
+    const first=timers.length;f.document.getElementById("replayTut").onclick();
+    const scheduled=timers.slice(first).filter(t=>t.delay===80);assert.equal(scheduled.length,1);scheduled[0].fn();
+    assert.equal(f.document.getElementById("tutTitle").textContent,"WELCOME TO ACED");
+    const copy=f.document.getElementById("tutBody").innerHTML;
+    assert.ok(copy.includes("Questions are optional."));
+    assert.ok(copy.includes("Game progress is not a measure of recall or a prediction of test performance."));
+    assert.ok(!copy.includes("tracks how well you actually know it"));
+    assert.equal(f.requests.length,0);
+  });
+  await test("phone source contract: scoped compact groups retain controls, growing content and card order",()=>{
+    const html=read("study.html"),parts=html.split('<style id="aced-product-success-layout">');
+    assert.equal(parts.length,2);const style=parts[1].split("</style>")[0];
+    assert.ok(style.includes(".topbar .tbtns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr))"));
+    assert.ok(style.includes('grid-template-areas:"blind blind score score score" "blind blind handline handline handline" "blind blind readout readout readout" "counters counters counters counters info"'));
+    assert.ok(style.includes(".readiness .progress-scope[open]{grid-column:1/-1;grid-row:2}"));
+    assert.ok(style.includes("grid-template-columns:repeat(4,minmax(0,1fr))"));
+    assert.ok(style.includes("grid-template-columns:repeat(3,minmax(0,1fr))"));
+    for(const forbidden of ["overflow:hidden","overflow-x:hidden","height:100vh","zoom:","scale(",".jk{",".ci{",".jokers{",".cons{"])assert.ok(!style.includes(forbidden));
+    assert.doesNotMatch(style,/(?:^|[;{])\s*order\s*:/);
+    for(const id of ["dailyLink","reviewBtn","tbsBtn","handsBtn","helpBtn","deckBtn","codexBtn","notesBtn","mute","endRunBtn","jokerRail","consRail","runInfoBtn","play","discard","sortCat","sortVal"]){
+      assert.equal(html.split('id="'+id+'"').length,2,"existing owned control must remain unique");
+    }
+    // This checks the owned source contract, not browser rectangles or CSS layout.
+  });
   await test("mechanics control: existing counters, arithmetic and Daily points remain genuine",()=>{
     const f=runtime({read,weights:"({A:1})"});f.api.start();
     assert.equal(f.api.readinessPct(),0);f.api.addMastery("A.one",1);assert.equal(f.api.masteryPct("A.one"),2);assert.equal(f.api.readinessPct(),1);

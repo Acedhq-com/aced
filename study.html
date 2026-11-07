@@ -887,41 +887,55 @@ button.act.disc{background:var(--b-red) !important;box-shadow:0 4px 0 #a32a22 !i
 .aced-arcade-banner button{margin-left:auto;background:#10251b;border:1px solid #638b76;color:#d8f5d8;min-width:44px;min-height:44px;font:24px monospace;cursor:pointer}
 @media(max-width:480px){
   .wrap{padding:6px 8px 20px}
-  .topbar{flex-wrap:wrap;gap:4px;padding-top:0;padding-bottom:4px;margin-bottom:5px}
-  .topbar .logo{font-size:20px}.topbar .logo .sub{font-size:12px}
-  .topbar .tbtns{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start;width:100%}
-  .topbar .tbtn,.topbar .rankpill{min-height:44px;min-width:44px;box-sizing:border-box;padding:6px!important;font-size:8px!important;line-height:1.2}
-  .readiness{padding:5px 8px;margin-bottom:6px}
-  .readiness .rlbl{font-size:8px}.readiness .rpct{font-size:17px}
-  .readiness .rgate{margin-top:3px}.readiness #gateMock{font-size:15px}
+  .topbar{flex-wrap:wrap;gap:3px;padding-top:0;padding-bottom:3px;margin-bottom:4px}
+  .topbar .logo{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:20px}
+  .topbar .logo .sub{display:inline;margin:0;font:16px/1.1 'VT323',monospace;letter-spacing:0}
+  .topbar .tbtns{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;width:100%}
+  .topbar .tbtn,.topbar .rankpill{min-height:44px;min-width:44px;box-sizing:border-box;padding:4px!important;font-family:'VT323',monospace!important;font-size:16px!important;letter-spacing:0;line-height:1.1;white-space:normal;overflow-wrap:anywhere}
+  .readiness{display:grid;grid-template-columns:minmax(0,2.4fr) repeat(2,minmax(0,1fr));gap:3px 6px;padding:5px 8px;margin-bottom:6px}
+  .readiness .rtop{grid-column:1;grid-row:1;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;margin:0;min-width:0}
+  .readiness .rlbl{font-size:8px;letter-spacing:0}.readiness .rpct{font-size:16px;max-width:100%}
+  .readiness .rgate{grid-column:2;grid-row:1;align-self:center;margin:0;min-width:0}
+  .readiness #gateMock{box-sizing:border-box;width:100%;font-size:14px;padding:4px 3px}
+  .readiness .rbar,.readiness .coverage,.readiness .calib{grid-column:1/-1;min-width:0}
+  .readiness .progress-scope{grid-column:3;grid-row:1;min-width:0}
+  .readiness .progress-scope[open]{grid-column:1/-1;grid-row:2}
   .readiness .coverage{font-size:14px;margin-top:2px}
   .progress-scope{font-size:14px}.progress-scope summary{font-size:13px}
   .gamegrid{gap:5px!important;margin-bottom:5px}
-  .sidebar{display:grid!important;grid-template-columns:1fr 1fr;grid-template-areas:"blind score" "blind handline" "blind readout" "counters counters" "info info";gap:4px!important;position:static!important}
+  .sidebar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-areas:"blind blind score score score" "blind blind handline handline handline" "blind blind readout readout readout" "counters counters counters counters info";gap:4px!important;position:static!important}
   .sidebar .blind{grid-area:blind}.sidebar .rscore{grid-area:score;padding:4px 6px!important}
   .sidebar .handline{grid-area:handline;padding:4px!important;min-height:0}
-  .sidebar .readout{grid-area:readout;min-height:36px!important;padding:4px!important}
+  .sidebar .readout{grid-area:readout;box-sizing:border-box;min-height:36px!important;padding:4px!important;gap:3px}
   .sidebar .readout .ro-hint{font-size:13px}
   .sidebar .rscore .rsk{font-size:6px}.sidebar .rscore .rsv{font-size:14px}
   .sidebar .blind .name{font-size:8px!important;line-height:1.4;padding:6px!important;overflow-wrap:anywhere}
   .sidebar .bgoal{padding:7px 4px 2px!important}.sidebar .bgoal .bv{font-size:20px!important}
   .sidebar .brew{padding-bottom:5px!important}.sidebar .deb{font-size:13px}
   .sidebar .counters{grid-area:counters;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px!important}
-  .sidebar .ct{padding:6px 2px!important;min-height:44px;box-sizing:border-box;min-width:0}
-  .sidebar .ctk{font-size:6px!important;letter-spacing:0!important;overflow-wrap:anywhere}
-  .sidebar .ctv{font-size:12px!important}.sidebar .ribtn{grid-area:info;min-height:44px;padding:6px!important;margin:0}
+  .sidebar .ct{padding:4px 2px!important;min-height:44px;box-sizing:border-box;min-width:0}
+  .sidebar .ctk{font-size:6px!important;letter-spacing:0!important;overflow-wrap:anywhere;margin-bottom:2px}
+  .sidebar .ctv{font-size:12px!important}.sidebar .ribtn{grid-area:info;min-height:44px;min-width:44px;box-sizing:border-box;padding:4px!important;margin:0;font:16px/1.1 'VT323',monospace;letter-spacing:0}
   .stage{gap:5px}
-  .playarea{padding:7px 5px}.playarea .ph{margin-bottom:5px}
+  .playarea{padding:5px;margin-bottom:3px}.playarea .ph{margin-bottom:5px}
   #hand{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;min-height:0}
   #hand .card{box-sizing:border-box;width:100%;min-width:0;min-height:100px;padding:5px;overflow-wrap:anywhere}
   #hand .card .cn{font-size:15px;line-height:1.1}#hand .card .modk{font-size:12px;letter-spacing:0}
   #hand .card .el{font-size:6px;letter-spacing:0}#hand .card .cv{font-size:12px}
   #hand .card.sel{transform:translateY(-4px)!important}
-  .actions{flex-wrap:wrap;gap:5px}.actions .act{min-height:44px;padding:9px!important;flex:1}
+  .actions{flex-wrap:wrap;gap:5px;margin:3px 0}.actions .act{min-height:44px;padding:9px!important;flex:1}
   .actions .sortgrp{gap:4px;flex-wrap:wrap}.actions .sortlbl{font-size:11px}
   .aced-arcade-banner{margin:12px 8px}
 }
-@media(max-width:380px){#hand{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:380px){
+  .topbar .tbtns{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .readiness{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .readiness .rtop{grid-column:1/-1;grid-row:1}
+  .readiness .rgate{grid-column:1;grid-row:2}
+  .readiness .progress-scope{grid-column:2;grid-row:2}
+  .readiness .progress-scope[open]{grid-column:1/-1;grid-row:3}
+  #hand{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 </style>
 </head>
 <body>
@@ -3219,7 +3233,7 @@ showModal(`<h2>ACED — ${esc(PACK.name)}</h2>
     <div class="wt">HOW TO WIN</div>
     <div class="wd"><b style="color:var(--amber)">Each ${V.round}:</b> reach the target before you run out of hands.<br><b style="color:var(--amber)">Each run:</b> clear all ${MAXANTE} ${V.yrs}.<br>${GAME_PROGRESS_SCOPE}</div>
   </div>
-  <p class="help">Clear a ${V.round} and you face a <b style="color:var(--magenta)">Pop Quiz</b> \u2014 a real MCQ with a LOW / MED / HIGH confidence bet. <b style="color:var(--gold)">Jokers</b> are permanent rule-benders that warp scoring; buy more in the shop between ${V.round}s. You start with <b>${_starterNames}</b> and $${STARTER_MONEY}.</p>
+  <p class="help">Clear a ${V.round} for an <b style="color:var(--magenta)">optional Pop Quiz</b> \u2014 a real MCQ with a LOW / MED / HIGH confidence bet. <b style="color:var(--gold)">Jokers</b> are permanent rule-benders that warp scoring; buy more in the shop between ${V.round}s. You start with <b>${_starterNames}</b> and $${STARTER_MONEY}. Full casual-game access remains available without answering questions.</p>
   <button class="act play" id="begin">START</button>`);
 $("begin").onclick=function(){start();};
 
@@ -3233,7 +3247,7 @@ function rulesCardHTML(){
       <div class="rulebox"><div class="rt">PLAY HAND</div><div class="rd">Click 1&ndash;5 cards to select, then <b>PLAY HAND</b>. Score = <b>chips &times; mult</b>. Each play uses one <b>HAND</b>.</div></div>
       <div class="rulebox"><div class="rt">JOKERS</div><div class="rd">Permanent rule-benders that warp how hands score (<em>Study Streak, Snowball, Echo</em>&hellip;). Stack and <b>order</b> them to chain effects. Buy more in the shop.</div></div>
       <div class="rulebox"><div class="rt">GAME PROGRESS</div><div class="rd">Every card carries a <b>module tag</b> (${esc(MODULE_RANGE)}). Playing it raises topic game progress, not measured knowledge. The rail shows higher and lower game progression.</div></div>
-      <div class="rulebox"><div class="rt">POP QUIZ</div><div class="rd">Optional <b>${esc(SUBJECT)} questions</b> follow rounds, selected by existing game-counter rules. Bet <em>LOW / MED / HIGH</em> confidence. Correct answers earn cash and game progress; misses add a Weakness Card. Full casual-game access remains available.</div></div>
+      <div class="rulebox"><div class="rt">POP QUIZ</div><div class="rd">Optional <b>${esc(SUBJECT)} questions</b> follow rounds, selected by existing game-counter rules. Bet <em>LOW / MED / HIGH</em> confidence. Correct answers earn cash and game progress. Only HIGH-confidence misses can add a Weakness Card. Full casual-game access remains available.</div></div>
       <div class="rulebox"><div class="rt">SHOP</div><div class="rd">Between ${V.round}s, spend cash on <b>Jokers</b>, <b>consumables</b>, card finishes and other deck upgrades. Unused hands earn $1 each.</div></div>
     </div>
     <div class="winrow"><div class="wt">HOW TO WIN</div><div class="wd">Clear all ${V.round}s through <b>the final boss</b>. Applicable 60%/90% game-progress thresholds are practice access and game milestones, not educational mastery.</div></div>
@@ -3253,7 +3267,7 @@ $("helpBtn").onclick=()=>openRules();
    5 steps. Anchors a glowing spotlight on a real UI element + a coach card.
    Persists "tutorial_done" so it only fires once. ? HELP > REPLAY TUTORIAL re-runs it. */
 const TUT_STEPS=[
-  {sel:null, title:"WELCOME TO ACED", body:"This is <b>"+esc(SUBJECT)+" practice</b> in disguise. You'll answer questions from your own material &mdash; wrapped in a roguelike card game that tracks how well you actually know it. Here's the 30-second version."},
+  {sel:null, title:"WELCOME TO ACED", body:"Build a <b>"+esc(SUBJECT)+" card-game scoring engine</b>. Questions are optional. Game progress is not a measure of recall or a prediction of test performance. Recorded question answers describe only the available submitted-answer history. Here's the short tour."},
   {sel:"#hand", title:"1 · YOUR HAND", body:"These are real <b>playing cards</b> with ranks and suits. Each one also carries a "+esc(SUBJECT)+" <b>topic tag</b>, so the poker decisions you make drive what you study. Tap up to 5 cards."},
   {sel:"#play", title:"2 · BUILD A COMBO, CLEAR THE ROUND", body:"Your selected cards form a <b>combo scored like a poker hand</b>: <b>chips &times; mult</b>. Tap <b>HANDS</b> anytime to see the patterns. Each <b>"+V.round+"</b> has a score <b>target</b> &mdash; hit it before you run out of <b>hands</b> and you've cleared it."},
   {sel:"#jokerRail", title:"3 · JOKERS BEND THE RULES", body:"<em>Jokers</em> are permanent rule-benders (Study Streak, Snowball, Echo&hellip;) that warp how your hands score. Stack them in the <b>shop</b> between rounds \u2014 and order them, since many chain off their neighbours \u2014 to build a scoring engine."},
