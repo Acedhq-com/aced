@@ -195,15 +195,14 @@
   /* email capture */
   .capture{border:1px solid var(--border);background:linear-gradient(180deg,var(--panel),var(--panel2));padding:24px 20px}
   .capture .h2{margin-bottom:8px}
-  .capture p{color:var(--white);font-size:18px;margin:0 0 18px;overflow-wrap:anywhere}
-  .capture a{color:var(--cyan);text-decoration:underline;text-underline-offset:3px}
+  .capture p{color:var(--grey);font-size:18px;margin:0 0 18px}
   .formrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .formrow label{position:absolute;left:-9999px}
-  .formrow input{flex:1;min-width:0;width:100%;box-sizing:border-box;font-family:'VT323';font-size:20px;background:#04140d;border:1px solid var(--cyan);color:var(--white);padding:13px 14px}
-  .formrow input:focus,.formrow button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
-  .formrow button{min-width:44px;min-height:44px;max-width:100%;overflow-wrap:anywhere;font-family:'Press Start 2P';font-size:10px;padding:14px 18px;border:1px solid var(--cyan);background:#04201d;color:var(--cyan);cursor:pointer}
+  .formrow input{flex:1;min-width:220px;font-family:'VT323';font-size:20px;background:#04140d;border:1px solid var(--border);color:var(--white);padding:13px 14px}
+  .formrow input:focus{border-color:var(--cyan)}
+  .formrow button{font-family:'Press Start 2P';font-size:10px;padding:14px 18px;border:1px solid var(--cyan);background:#04201d;color:var(--cyan);cursor:pointer}
   .formrow button:hover{box-shadow:0 0 12px rgba(92,255,234,.4)}
-  .capnote{font-size:15px;color:var(--white);margin-top:12px;min-height:20px;overflow-wrap:anywhere}
+  .capnote{font-size:15px;color:var(--grey);margin-top:12px;min-height:20px}
   .capnote.ok{color:var(--money)}
 
   footer{border-top:1px solid var(--border);padding:30px 0 50px;color:var(--grey);font-size:16px;text-align:center}
@@ -482,7 +481,7 @@ Spanish: perro / dog</div>
   <section class="sec" id="trust">
     <div class="wrap">
       <div class="trust">
-        <h3>YOUR NOTES AND PROGRESS: DATA HANDLING</h3>
+        <h3>YOUR NOTES STAY YOURS &mdash; HERE'S EXACTLY WHAT THAT MEANS.</h3>
         <div class="trust-grid">
           <div class="trust-cell">
             <div class="k">NOTES PROCESSING</div>
@@ -512,7 +511,7 @@ Spanish: perro / dog</div>
         <p id="capture-intro">Get updates about ACED features and study packs. Submit your email to request launch updates.</p>
         <form class="formrow" id="capForm" data-aced-notify data-source="home" data-endpoint="" novalidate>
           <label for="capEmail">Email address</label>
-          <input id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" aria-describedby="capPurpose capNote" />
+          <input id="capEmail" type="email" placeholder="you@example.com" autocomplete="email" />
           <button type="submit">NOTIFY ME</button>
         </form>
         <div class="capnote" id="capNote" role="status" aria-live="polite" aria-atomic="true"></div>
@@ -539,7 +538,6 @@ Spanish: perro / dog</div>
 <!-- streak read shares the Daily Run store via aced-core -->
 <script src="aced-config.js?v=5"></script>
 <script src="aced-core.js"></script>
-<script src="notify.js"></script>
 <script src="aced-account.js"></script>
 <script src="aced-progress.js"></script>
 <script src="aced-library.js"></script>
@@ -568,6 +566,26 @@ Spanish: perro / dog</div>
       }
     }
   }catch(e){}
+
+  // email capture — front-end scaffold.
+  var form=document.getElementById("capForm"), note=document.getElementById("capNote");
+  if(form){
+    form.addEventListener("submit", function(e){
+      e.preventDefault();
+      var email=(document.getElementById("capEmail").value||"").trim();
+      var valid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if(!valid){ note.className="capnote"; note.textContent="Enter a valid email and we'll add you to the list."; return; }
+      var endpoint=form.getAttribute("data-endpoint")||window.ACED_CAPTURE_ENDPOINT||(window.ACED_API_URL?String(window.ACED_API_URL).replace(/\/$/,"")+"/notify":"");
+      try{ if(window.ACEDCore){ var subs=ACEDCore.store.get("subscribers",[]); subs.push({email:email,t:Date.now()}); ACEDCore.store.set("subscribers",subs); ACEDCore.analytics.track("email_captured",{}); } }catch(_){}
+      function done(){ note.className="capnote ok"; note.textContent="You're on the early list. Talk soon."; form.reset(); }
+      if(endpoint){
+        try{
+          fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,source:"home"})})
+            .then(done).catch(done);
+        }catch(_){ done(); }
+      } else { done(); }
+    });
+  }
 
   // engine-first entry: paste notes -> hand off to the importer, which builds + plays
   var bootGo=document.getElementById("bootGo"), bootNotes=document.getElementById("bootNotes");
