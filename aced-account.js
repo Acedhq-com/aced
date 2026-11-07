@@ -14,7 +14,10 @@
      ACEDAccount.email()                        -> string | null
      ACEDAccount.signInNotice()                 -> neutral message if a sign-in link was refused on this load, else null
      ACEDAccount.signIn(email)                  -> Promise (sends magic link; dev: opens link)
-     ACEDAccount.signOut()                      -> clears the session (local play continues)
+     ACEDAccount.signInPending()                -> true while an emailed link waits for the user's confirmation
+     ACEDAccount.confirmSignIn()                -> Promise<{ok}> (the user's click: redeems the emailed link)
+     ACEDAccount.syncHeld()                     -> true if sync was held because this browser's progress belongs to another account
+     ACEDAccount.signOut()                      -> Promise; clears the session and revokes it server-side (local play continues)
      ACEDAccount.entitlements()                 -> Promise<string[]>  (owned pack ids)
      ACEDAccount.has(packId)                    -> Promise<bool>
      ACEDAccount.checkout(packId)               -> Promise (redirects to Stripe Checkout)
@@ -100,7 +103,8 @@
     else if (document.addEventListener) document.addEventListener("DOMContentLoaded", render);
   }
 
-  // 1) Capture a token handed back in the URL fragment after /auth/verify, then clean the URL.
+  // 1) Capture a token handed back in the URL fragment by the pre-Phase-A /auth/verify, then clean the URL.
+  //    The server no longer issues #token= links (see step 1b); this path stays state-bound.
   //    The fragment is ALWAYS scrubbed; the token is kept only if its state matches a
   //    pending sign-in from this browser. A rejected token never replaces a current session,
   //    suppresses sync for this page load, and shows the neutral notice above.
@@ -139,6 +143,99 @@
     );
   }
 
+  // 1b) Scanner-safe sign-in. The emailed link is APP_URL/#signin=<one-time token>. A fragment
+  //     never reaches a server, so fetching or previewing the link authenticates nothing and
+  //     consumes nothing. On load the fragment is scrubbed at once and the code is kept in
+  //     memory only. Nothing is sent until the user confirms in this browser; the redeem
+  //     request carries this browser's pending states, which the server checks against the
+  //     state recorded when the link was requested. Without a pending state (another browser,
+  //     a link preview, an automated fetch) the link is refused locally with the neutral notice.
+  var SIGNIN_CODE_RE = /^[a-f0-9]{48}$/;
+  var pendingCode = null;
+  function removeConfirm() {
+    try { var el = document.getElementById("aced-signin-confirm"); if (el && el.parentNode) el.parentNode.removeChild(el); } catch (e) {}
+  }
+  function showConfirm() {
+    if (typeof document === "undefined" || !document || !document.createElement) return;
+    function render() {
+      try {
+        if (!pendingCode || !document.body || document.getElementById("aced-signin-confirm")) return;
+        var box = document.createElement("div");
+        box.id = "aced-signin-confirm";
+        box.setAttribute("role", "dialog");
+        box.setAttribute("aria-label", "Confirm sign-in");
+        box.style.cssText = "position:fixed;top:12px;left:12px;right:12px;margin:0 auto;max-width:560px;z-index:2147483647;" +
+          "box-sizing:border-box;display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px;" +
+          "background:#111;color:#fff;border:2px solid #4dff9e;border-radius:8px;font:15px/1.4 system-ui,sans-serif";
+        var text = document.createElement("span");
+        text.textContent = "Finish signing in to ACED in this browser?";
+        var yes = document.createElement("button");
+        yes.type = "button";
+        yes.textContent = "Sign in";
+        yes.style.cssText = "flex:none;font:inherit;color:#111;background:#4dff9e;border:0;border-radius:4px;padding:4px 12px;cursor:pointer";
+        yes.onclick = function () { ACEDAccount.confirmSignIn(); };
+        var no = document.createElement("button");
+        no.type = "button";
+        no.textContent = "Cancel";
+        no.style.cssText = "flex:none;font:inherit;color:#fff;background:transparent;border:1px solid #888;border-radius:4px;padding:4px 12px;cursor:pointer";
+        no.onclick = function () { pendingCode = null; removeConfirm(); activate(); };
+        box.appendChild(text);
+        box.appendChild(yes);
+        box.appendChild(no);
+        document.body.insertBefore(box, document.body.firstChild);
+        try { if (yes.focus) yes.focus(); } catch (e) {}
+      } catch (e) {}
+    }
+    if (document.body) render();
+    else if (document.addEventListener) document.addEventListener("DOMContentLoaded", render);
+  }
+  function refuseSignIn() {
+    pendingCode = null;
+    removeConfirm();
+    signInRefused = true;
+    showSignInNotice();
+  }
+  function captureSignInCode() {
+    try {
+      if (!location.hash || location.hash.indexOf("signin=") < 0) return;
+      var code = new URLSearchParams(location.hash.slice(1)).get("signin");
+      try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+      if (API && code && SIGNIN_CODE_RE.test(code) && readStates().length) {
+        pendingCode = code;
+        showConfirm();
+      } else {
+        refuseSignIn();
+      }
+    } catch (e) {}
+  }
+  captureSignInCode();
+
+  // Account-switch guard. Local progress belongs to whichever account first synced it in
+  // this browser. If a different account signs in here, sync is held (nothing pushed,
+  // nothing pulled), so one account's progress is never uploaded into another and no local
+  // history is overwritten. Tokens whose account can't be read locally keep the old behaviour;
+  // the server rejects such tokens anyway.
+  var SYNC_OWNER_KEY = "aced_sync_owner";
+  var syncHeld = false;
+  function sessionSub(t) {
+    try {
+      var p = String(t).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (p.length % 4) p += "=";
+      var o = JSON.parse(atob(p));
+      return o && typeof o.sub === "string" && o.sub ? o.sub : null;
+    } catch (e) { return null; }
+  }
+  function ownerAllowsSync(tok) {
+    var sub = sessionSub(tok), s = ls(), owner = null;
+    if (!sub) return true;
+    try { owner = s ? s.getItem(SYNC_OWNER_KEY) : null; } catch (e) { owner = null; }
+    if (!owner) { try { if (s) s.setItem(SYNC_OWNER_KEY, sub); } catch (e) {} return true; }
+    return owner === sub;
+  }
+  function resetBackend() {
+    try { if (window.ACEDCore && ACEDCore.backend) ACEDCore.backend.configure({ endpoint: null, token: null }); } catch (e) {}
+  }
+
   function api(path, opts) {
     if (!API) return Promise.reject(new Error("no-api"));
     opts = opts || {};
@@ -160,9 +257,12 @@
   var ready = Promise.resolve();
   //    A refused sign-in link skips this entirely for the current page load: no backend is
   //    configured and nothing is uploaded, even if an earlier valid session is still stored.
-  (function activate() {
-    if (signInRefused) return;
+  //    The same holds while an emailed link waits for confirmation, and when the session
+  //    belongs to a different account than this browser's progress (account switch).
+  function activate() {
+    if (signInRefused || pendingCode) return;
     if (!API || !getTok() || !window.ACEDCore || !ACEDCore.backend) return;
+    if (!ownerAllowsSync(getTok())) { syncHeld = true; return; }
     try {
       ACEDCore.backend.configure({ endpoint: API, token: getTok() });
       if (ACEDCore.sync && ACEDCore.sync.isEnabled && ACEDCore.sync.isEnabled()) {
@@ -172,12 +272,43 @@
           .catch(function () {});
       }
     } catch (e) {}
-  })();
+  }
+  activate();
 
   var ACEDAccount = {
     ready: function () { return ready; },
     isSignedIn: function () { return !!getTok(); },
     signInNotice: function () { return signInRefused ? SIGNIN_REFUSED_MESSAGE : null; },   // neutral text, or null
+    signInPending: function () { return !!pendingCode; },
+    syncHeld: function () { return syncHeld; },
+    // The intentional browser action that completes an emailed sign-in. Sends the one-time
+    // code with this browser's pending states; on success the session is stored and sync
+    // starts. Any refusal keeps the existing session, uploads nothing and shows the neutral
+    // notice. The redeem request never carries the existing session token.
+    confirmSignIn: function () {
+      var code = pendingCode;
+      if (!code) return Promise.resolve({ ok: false });
+      pendingCode = null;
+      removeConfirm();
+      var states = readStates().map(function (x) { return x.s; });
+      if (!API || !states.length) { refuseSignIn(); return Promise.resolve({ ok: false }); }
+      return fetchT(API + "/auth/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: code, states: states })
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (b) {
+          if (r.status === 200 && b && typeof b.session === "string" && JWT_SHAPE.test(b.session)) {
+            setTok(b.session);
+            writeStates([]);                     // single use: clear every pending sign-in
+            activate();
+            return { ok: true };
+          }
+          refuseSignIn();
+          return { ok: false };
+        });
+      }, function () { refuseSignIn(); return { ok: false }; });
+    },
     token: function () { return getTok(); },   // leagues.js authHeader() reads this
     email: function () { try { var t = getTok(); if (!t) return null; var p = JSON.parse(atob(t.split(".")[1])); return p.email || null; } catch (e) { return null; } },
 
@@ -188,11 +319,23 @@
       var pending = readStates(); pending.push({ s: state, exp: Date.now() + AUTH_STATE_TTL_MS }); writeStates(pending);
       return api("/auth/request", { method: "POST", body: { email: String(email || "").trim(), state: state } })
         .then(function (res) {
-          if (res && res.devLink) { try { location.href = res.devLink; } catch (e) {} }   // dev convenience
+          if (res && res.devLink) {                                   // local dev convenience
+            try { location.href = res.devLink; } catch (e) {}
+            captureSignInCode();                                      // same-page link: no reload happens
+          }
           return res;
         });
     },
-    signOut: function () { setTok(null); try { if (window.ACEDCore && ACEDCore.backend) ACEDCore.backend.configure({ endpoint: API, token: null }); } catch (e) {} },
+    // Drops the local session at once (local play continues, no further sync) and asks the
+    // server to revoke it, so a copied token can't be replayed after sign-out.
+    signOut: function () {
+      var t = getTok();
+      setTok(null);
+      resetBackend();
+      if (!API || !t) return Promise.resolve({ ok: true, revoked: false });
+      return fetchT(API + "/auth/signout", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t } })
+        .then(function (r) { return { ok: true, revoked: r.status === 200 }; }, function () { return { ok: true, revoked: false }; });
+    },
 
     // GET /entitlements is Bearer-only server-side, so an anonymous call can never succeed —
     // it just burns a round trip and logs a network/CORS error on every signed-out page load.
@@ -213,8 +356,8 @@
     // Revoke every session for this account (e.g. lost device), then clear the local
     // token so this device falls back to local-only play immediately.
     signOutEverywhere: function () {
-      if (!API || !getTok()) { setTok(null); return Promise.resolve({ ok: true }); }
-      return api("/auth/signout-all", { method: "POST" }).then(function (r) { setTok(null); return r; });
+      if (!API || !getTok()) { setTok(null); resetBackend(); return Promise.resolve({ ok: true }); }
+      return api("/auth/signout-all", { method: "POST" }).then(function (r) { setTok(null); resetBackend(); return r; });
     },
     // Opt IN to the public leaderboard under a display handle (2-24 chars; the server
     // sanitizes). Until this is called the user is invisible on the board.

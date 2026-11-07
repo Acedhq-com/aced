@@ -4,7 +4,10 @@
    it's actually delivered, picking a provider from env at load time:
 
      RESEND_API_KEY set  ->  Resend (https://resend.com — simple HTTPS, free tier)
-     nothing set         ->  console fallback: logs the link, sends NOTHING.
+     nothing set         ->  console fallback: sends NOTHING and logs only that
+                             delivery was skipped (never the address or the link).
+                             Local development gets the link from the /auth/request
+                             response instead (localhost APP_URL only; see auth-flow.js).
 
    The console fallback is fine for local dev. In PRODUCTION it means nobody can
    sign in, so server.js logs a loud warning at boot if it sees the console
@@ -22,9 +25,10 @@ const FROM = process.env.EMAIL_FROM || "ACED <onboarding@resend.dev>";
 function consoleProvider() {
   return {
     name: "console",
-    async send({ to, subject, text }) {
-      console.log("[email:console] would send to " + to + " — " + JSON.stringify(subject));
-      console.log("[email:console] " + text.replace(/\n/g, " "));
+    async send() {
+      // Recipient, subject, body and link are deliberately NOT logged: the link is a
+      // bearer credential and the address is personal data.
+      console.log("[email:console] delivery skipped: no email provider configured");
       return { ok: true, provider: "console", delivered: false };
     }
   };
@@ -41,8 +45,8 @@ function resendProvider(key) {
         body: JSON.stringify({ from: FROM, to: [to], subject, html, text })
       });
       if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error("Resend " + res.status + ": " + body.slice(0, 300));
+        // Status only: the provider's error body can echo the recipient address.
+        throw new Error("Resend HTTP " + Number(res.status));
       }
       return { ok: true, provider: "resend", delivered: true };
     }

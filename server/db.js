@@ -20,7 +20,15 @@
    ============================================================================ */
 "use strict";
 
+const { pgSslConfig } = require("./db-tls");
+
 const USE_PG = !!process.env.DATABASE_URL;
+
+/* magic.token holds the SHA-256 hex digest of the one-time sign-in token, never the raw
+   token (see auth-flow.js); magic.state_hash holds the digest of the requesting browser's
+   state. Rows written before this change hold raw tokens and no state_hash: they can't
+   be matched by digest, so they are never redeemable and are purged by the hourly gc.
+   revoked_sessions lists session ids revoked by POST /auth/signout until they expire. */
 
 /* ---------------- SQLite backend (default; great for local dev) ------------- */
 function makeSqlite() {
@@ -43,6 +51,7 @@ function makeSqlite() {
     CREATE TABLE IF NOT EXISTS entitlements (user_id TEXT, pack_id TEXT, granted_at INTEGER, PRIMARY KEY(user_id,pack_id));
     CREATE TABLE IF NOT EXISTS leaderboard  (user_id TEXT, pack_id TEXT, handle TEXT, best_streak INTEGER, readiness INTEGER, mock_best INTEGER, updated_at INTEGER, PRIMARY KEY(user_id,pack_id));
     CREATE TABLE IF NOT EXISTS subscribers (email TEXT PRIMARY KEY, source TEXT, created_at INTEGER);
+    CREATE TABLE IF NOT EXISTS revoked_sessions (sid TEXT PRIMARY KEY, expires INTEGER);
   `);
   // better-sqlite3 is synchronous; wrap results in resolved promises so the API
   // matches the async Postgres backend exactly.
@@ -55,6 +64,8 @@ function makeSqlite() {
     if (!cols.includes("handle")) db.exec("ALTER TABLE users ADD COLUMN handle TEXT");
     const scols = db.prepare("PRAGMA table_info(subscribers)").all().map(c => c.name);
     if (!scols.includes("source")) db.exec("ALTER TABLE subscribers ADD COLUMN source TEXT");
+    const mcols = db.prepare("PRAGMA table_info(magic)").all().map(c => c.name);
+    if (!mcols.includes("state_hash")) db.exec("ALTER TABLE magic ADD COLUMN state_hash TEXT");
   }
   const P = (v) => Promise.resolve(v);
   return {
@@ -68,10 +79,17 @@ function makeSqlite() {
       setHandle: (id, handle) => P(db.prepare("UPDATE users SET handle=? WHERE id=?").run(handle, id))
     },
     magic: {
-      create: (token, email, expires) => P(db.prepare("INSERT INTO magic(token,email,expires) VALUES(?,?,?)").run(token, email, expires)),
-      find: (token) => P(db.prepare("SELECT token,email,expires FROM magic WHERE token=?").get(token) || null),
-      remove: (token) => P(db.prepare("DELETE FROM magic WHERE token=?").run(token)),
+      create: (tokenHash, email, expires, stateHash) => P(db.prepare("INSERT INTO magic(token,email,expires,state_hash) VALUES(?,?,?,?)").run(tokenHash, email, expires, stateHash)),
+      find: (tokenHash) => P(db.prepare("SELECT email,expires,state_hash FROM magic WHERE token=?").get(tokenHash) || null),
+      // Atomic single use: exactly one caller gets the row back.
+      consume: (tokenHash) => P(db.prepare("DELETE FROM magic WHERE token=? RETURNING email,expires,state_hash").get(tokenHash) || null),
+      remove: (tokenHash) => P(db.prepare("DELETE FROM magic WHERE token=?").run(tokenHash)),
       gc: (cutoff) => P(db.prepare("DELETE FROM magic WHERE expires < ?").run(cutoff))
+    },
+    sessions: {
+      revoke: (sid, expires) => P(db.prepare("INSERT OR IGNORE INTO revoked_sessions(sid,expires) VALUES(?,?)").run(sid, expires)),
+      isRevoked: (sid) => P(!!db.prepare("SELECT 1 AS r FROM revoked_sessions WHERE sid=?").get(sid)),
+      gc: (cutoff) => P(db.prepare("DELETE FROM revoked_sessions WHERE expires < ?").run(cutoff))
     },
     state: {
       get: (userId, packId) => P(db.prepare("SELECT json, updated_at FROM state WHERE user_id=? AND pack_id=?").get(userId, packId) || null),
@@ -102,12 +120,15 @@ function makeSqlite() {
 
 /* ---------------- Postgres backend (durable, free tiers available) ---------- */
 function makePg() {
+  // Transport policy (server/db-tls.js): production always verifies the server certificate
+  // and refuses to start on an insecure setting; weaker modes are explicit, dev-only opt-ins.
+  // Checked BEFORE the driver is loaded, so a refused configuration never opens a connection.
+  const tls = pgSslConfig(process.env);
+  if (tls.warning) console.warn(tls.warning);
   const { Pool } = require("pg");
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    // Most hosted Postgres (Neon/Supabase/Render) require TLS; they use certs that
-    // Node won't verify by default, so relax verification unless told otherwise.
-    ssl: process.env.PGSSL === "off" ? false : { rejectUnauthorized: false }
+    ssl: tls.ssl
   });
   const q = (text, params) => pool.query(text, params);
   return {
@@ -120,11 +141,13 @@ function makePg() {
         CREATE TABLE IF NOT EXISTS entitlements (user_id TEXT, pack_id TEXT, granted_at BIGINT, PRIMARY KEY(user_id,pack_id));
         CREATE TABLE IF NOT EXISTS leaderboard  (user_id TEXT, pack_id TEXT, handle TEXT, best_streak INTEGER, readiness INTEGER, mock_best INTEGER, updated_at BIGINT, PRIMARY KEY(user_id,pack_id));
         CREATE TABLE IF NOT EXISTS subscribers (email TEXT PRIMARY KEY, source TEXT, created_at BIGINT);
+        CREATE TABLE IF NOT EXISTS revoked_sessions (sid TEXT PRIMARY KEY, expires BIGINT);
       `);
       // additive migrations for existing deployments (idempotent)
       await q("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER DEFAULT 0");
       await q("ALTER TABLE users ADD COLUMN IF NOT EXISTS handle TEXT");
       await q("ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS source TEXT");
+      await q("ALTER TABLE magic ADD COLUMN IF NOT EXISTS state_hash TEXT");
     },
     users: {
       findByEmail: async (email) => (await q("SELECT id,email,created_at,token_version,handle FROM users WHERE email=$1", [email])).rows[0] || null,
@@ -134,10 +157,17 @@ function makePg() {
       setHandle: (id, handle) => q("UPDATE users SET handle=$1 WHERE id=$2", [handle, id])
     },
     magic: {
-      create: (token, email, expires) => q("INSERT INTO magic(token,email,expires) VALUES($1,$2,$3)", [token, email, expires]),
-      find: async (token) => (await q("SELECT token,email,expires FROM magic WHERE token=$1", [token])).rows[0] || null,
-      remove: (token) => q("DELETE FROM magic WHERE token=$1", [token]),
+      create: (tokenHash, email, expires, stateHash) => q("INSERT INTO magic(token,email,expires,state_hash) VALUES($1,$2,$3,$4)", [tokenHash, email, expires, stateHash]),
+      find: async (tokenHash) => (await q("SELECT email,expires,state_hash FROM magic WHERE token=$1", [tokenHash])).rows[0] || null,
+      // Atomic single use: exactly one caller gets the row back.
+      consume: async (tokenHash) => (await q("DELETE FROM magic WHERE token=$1 RETURNING email,expires,state_hash", [tokenHash])).rows[0] || null,
+      remove: (tokenHash) => q("DELETE FROM magic WHERE token=$1", [tokenHash]),
       gc: (cutoff) => q("DELETE FROM magic WHERE expires < $1", [cutoff])
+    },
+    sessions: {
+      revoke: (sid, expires) => q("INSERT INTO revoked_sessions(sid,expires) VALUES($1,$2) ON CONFLICT(sid) DO NOTHING", [sid, expires]),
+      isRevoked: async (sid) => (await q("SELECT 1 AS r FROM revoked_sessions WHERE sid=$1", [sid])).rows.length > 0,
+      gc: (cutoff) => q("DELETE FROM revoked_sessions WHERE expires < $1", [cutoff])
     },
     state: {
       get: async (userId, packId) => {

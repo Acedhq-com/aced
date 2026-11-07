@@ -14,8 +14,10 @@
      npm start                            # http://localhost:8787
 
    Endpoints:
-     POST /auth/request   {email,state}           -> emails a magic link (dev: also returns it)
-     GET  /auth/verify?token=...&state=...        -> mints a session JWT, redirects to APP_URL#token=...&state=...
+     POST /auth/request   {email,state}           -> emails APP_URL/#signin=<token> (localhost dev: also returns it)
+     POST /auth/redeem    {token,states}          -> after the user confirms in the requesting browser: { session }
+     GET  /auth/verify                            -> legacy links only: 410, touches nothing (scanner-safe)
+     POST /auth/signout                           -> revoke THIS session                (Bearer)
      GET  /state?pack=<id>                        -> merged state for the authed user+pack   (Bearer)
      POST /sync?pack=<id> <snapshot>              -> merge + persist (pack required)          (Bearer)
      GET  /entitlements                           -> { packs:[...] }                          (Bearer)
@@ -35,7 +37,8 @@ const jwt = require("jsonwebtoken");
 const { rateLimit } = require("express-rate-limit");
 const { mergeState } = require("./merge");
 const { leaderboardMetrics } = require("./leaderboard");
-const { syncPackId, cleanAuthState, magicLinkUrl, sessionRedirectUrl } = require("./sync-auth-guards");
+const { syncPackId } = require("./sync-auth-guards");
+const { createAuthFlow, checkSession, makeAuthLogger, devLinksAllowed, newRequestId } = require("./auth-flow");
 const db = require("./db");
 const { sendMagicLink, providerName } = require("./email");
 
@@ -44,6 +47,9 @@ const APP_URL = process.env.APP_URL || "http://localhost:5500";          // wher
 const API_URL = process.env.API_URL || ("http://localhost:" + PORT);
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
 const DEV = process.env.NODE_ENV !== "production";
+// Session lifetime is unchanged by the Phase A hardening (see docs/security/auth-session-transport.md).
+const SESSION_TTL = "60d";
+const authLog = makeAuthLogger();
 
 // Linear email validation (no backtracking regex — avoids ReDoS). Length-capped,
 // exactly one '@', non-empty local part, a dotted domain, no whitespace.
@@ -73,6 +79,17 @@ const stripe = process.env.STRIPE_SECRET_KEY ? require("stripe")(process.env.STR
 const PRICES = {};
 
 const uid = () => crypto.randomBytes(9).toString("hex");
+
+const authFlow = createAuthFlow({
+  db,
+  log: authLog,
+  isValidEmail,
+  sendMagicLink,
+  appUrl: APP_URL,
+  devLinks: devLinksAllowed(process.env),
+  newUserId: uid,
+  signSession: (claims) => jwt.sign(claims, JWT_SECRET, { algorithm: "HS256", expiresIn: SESSION_TTL })
+});
 
 /* ---------- app ---------- */
 const app = express();
@@ -108,6 +125,8 @@ app.post("/billing/webhook", express.raw({ type: "application/json" }), async (r
   res.json({ received: true });
 });
 
+// Random per-request correlation id: the only request identifier auth logs carry.
+app.use((req, res, next) => { req.rid = newRequestId(); res.setHeader("X-Request-Id", req.rid); next(); });
 app.use(express.json({ limit: "2mb" }));
 // permissive CORS for the static site (lock APP_URL down in prod)
 app.use((req, res, next) => {
@@ -132,16 +151,21 @@ async function auth(req, res, next) {
   const tok = h.startsWith("Bearer ") ? h.slice(7) : null;
   if (!tok) return res.status(401).json({ error: "no token" });
   let payload;
-  try { payload = jwt.verify(tok, JWT_SECRET); }
-  catch (e) { return res.status(401).json({ error: "bad token" }); }
+  try { payload = jwt.verify(tok, JWT_SECRET, { algorithms: ["HS256"] }); }
+  catch (e) { authLog("auth_session", "bad_token", req.rid); return res.status(401).json({ error: "bad token" }); }
   try {
     const u = await db.users.get(payload.sub);
-    if (!u) return res.status(401).json({ error: "no account" });
     // Session revocation: bumping users.token_version (POST /auth/signout-all)
     // invalidates every previously-issued JWT. Tokens minted before this feature
     // carry no `tv`, which reads as 0 and matches a fresh account — so old sessions
-    // keep working until a deliberate bump.
-    if (Number(u.token_version || 0) !== Number(payload.tv || 0)) return res.status(401).json({ error: "session revoked" });
+    // keep working until a deliberate bump. POST /auth/signout revokes one session id.
+    const revoked = typeof payload.sid === "string" && payload.sid ? await db.sessions.isRevoked(payload.sid) : false;
+    const why = checkSession(payload, u, revoked, Date.now());
+    if (why) {
+      authLog("auth_session", why, req.rid);
+      const error = why === "no_account" ? "no account" : why === "session_revoked" ? "session revoked" : "bad token";
+      return res.status(401).json({ error });
+    }
     req.user = payload; req.userRow = u;   // stash so downstream routes skip a re-query
     next();
   } catch (e) { next(e); }                 // DB error -> error middleware (clean 500)
@@ -192,46 +216,38 @@ const notifyLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHea
 app.use(apiLimiter);
 
 /* ---------- accounts (magic-link) ---------- */
-app.post("/auth/request", authLimiter, magicLinkLimiter, async (req, res) => {
-  const email = String((req.body && req.body.email) || "").trim().toLowerCase();
-  // Linear, length-capped validation (avoids ReDoS from backtracking regexes).
-  if (!isValidEmail(email)) return res.status(400).json({ error: "invalid email" });
-  // One-time browser state (see sync-auth-guards.js). Required: a link without it could
-  // never be accepted by the app, so don't email a usable-looking credential.
-  const state = cleanAuthState(req.body && req.body.state);
-  if (!state) return res.status(400).json({ error: "invalid state" });
-  const token = crypto.randomBytes(24).toString("hex");
-  try { await db.magic.create(token, email, Date.now() + 15 * 60 * 1000); }
-  catch (e) { console.error("[auth] magic create failed:", e.message); return res.status(500).json({ error: "server error" }); }
-  const link = magicLinkUrl(API_URL, token, state);
-  // Deliver via the configured provider. Never block the response on delivery, and
-  // NEVER leak the link in the API response outside dev (it's a bearer credential).
-  sendMagicLink(email, link).catch(err => console.error("[auth] email send failed:", err.message));
-  console.log("[auth] magic link issued for " + email + (DEV ? (": " + link) : ""));
-  res.json({ ok: true, devLink: DEV ? link : undefined });
+// Request, redeem and logging rules live in auth-flow.js (unit-tested without Express).
+// Sign-in never completes on a GET: the emailed link opens the static app, and only an
+// explicit confirmation in the requesting browser POSTs /auth/redeem.
+app.post("/auth/request", authLimiter, magicLinkLimiter, wrap(async (req, res) => {
+  const out = await authFlow.request(req.body, req.rid);
+  res.status(out.status).json(out.body);
+}));
+
+app.post("/auth/redeem", authLimiter, wrap(async (req, res) => {
+  const out = await authFlow.redeem(req.body, req.rid);
+  res.status(out.status).json(out.body);
+}));
+
+// Links emailed before this change pointed here. They are not redeemable any more (tokens
+// are now stored as digests), and a GET must never consume or mint anything.
+app.get("/auth/verify", authLimiter, (req, res) => {
+  const out = authFlow.legacyVerify(req.rid);
+  res.status(out.status).type("text/plain").send(out.text);
 });
 
-app.get("/auth/verify", authLimiter, wrap(async (req, res) => {
-  // Validate state BEFORE consuming the single-use token, so a malformed link can't burn it.
-  const state = cleanAuthState(req.query.state);
-  if (!state) return res.status(400).send("Link invalid — request a new one.");
-  let row;
-  try { row = await db.magic.find(String(req.query.token || "")); }
-  catch (e) { console.error("[auth] verify lookup failed:", e.message); return res.status(500).send("server error"); }
-  if (!row || Number(row.expires) < Date.now()) return res.status(400).send("Link expired — request a new one.");
-  await db.magic.remove(row.token);
-  let user = await db.users.findByEmail(row.email);
-  if (!user) { const id = uid(); await db.users.create(id, row.email, Date.now()); user = { id, email: row.email, token_version: 0 }; }
-  const session = jwt.sign({ sub: user.id, email: user.email, tv: Number(user.token_version || 0) }, JWT_SECRET, { expiresIn: "60d" });
-  // hand the token back to the static app via the URL fragment (not logged by servers),
-  // with the browser's state so the app can refuse tokens it did not ask for.
-  res.redirect(sessionRedirectUrl(APP_URL, session, state));
+// Revoke THIS session (normal sign-out). The session id is listed as revoked until the
+// token would have expired anyway, so a copied token stops working immediately.
+app.post("/auth/signout", auth, wrap(async (req, res) => {
+  const out = await authFlow.signout(req.user, req.rid);
+  res.status(out.status).json(out.body);
 }));
 
 // Revoke every active session for the caller (lost/shared device). Bumps the
 // stored token_version so all outstanding JWTs fail the check in auth().
 app.post("/auth/signout-all", auth, wrap(async (req, res) => {
   await db.users.bumpVersion(req.user.sub);
+  authLog("auth_signout_all", "revoked_all", req.rid);
   res.json({ ok: true });
 }));
 
@@ -329,8 +345,10 @@ app.get("/health", (req, res) => res.json({ ok: true, stripe: !!stripe, db: db.k
 
 // Final error handler: any rejection forwarded by wrap() (or next(err)) lands here
 // and returns a clean 500 instead of leaking a stack trace or hanging the request.
+// Only an outcome code and the request id are logged: error messages can echo request
+// bodies (e.g. a JSON parse error quoting an email address) or database values.
 app.use((err, req, res, next) => {
-  console.error("[unhandled]", (err && err.message) || err);
+  authLog("server", "unhandled_error", req && req.rid);
   if (res.headersSent) return next(err);
   res.status(500).json({ error: "server error" });
 });
@@ -341,12 +359,18 @@ db.init().then(() => {
     console.warn("[WARN] NODE_ENV=production but no email provider is configured (RESEND_API_KEY unset).");
     console.warn("[WARN] Magic links will NOT be delivered — set RESEND_API_KEY or sign-in will silently fail.");
   }
-  // Purge expired magic-link tokens hourly so the table cannot grow without bound.
-  setInterval(() => { try { db.magic.gc(Date.now()).catch(() => {}); } catch (e) {} }, 60 * 60 * 1000).unref();
+  // Purge expired magic-link tokens and expired session revocations hourly so the
+  // tables cannot grow without bound.
+  setInterval(() => {
+    try { db.magic.gc(Date.now()).catch(() => {}); } catch (e) {}
+    try { db.sessions.gc(Date.now()).catch(() => {}); } catch (e) {}
+  }, 60 * 60 * 1000).unref();
   app.listen(PORT, () => console.log(
     "ACED API on " + API_URL +
     "  · db: " + db.kind +
     "  · email: " + providerName +
     (stripe ? "" : "  · Stripe disabled (set STRIPE_SECRET_KEY)")
   ));
-}).catch(e => { console.error("FATAL: db init failed:", e.message); process.exit(1); });
+// Code only (e.g. ENOTFOUND, 28P01, SELF_SIGNED_CERT_IN_CHAIN): driver messages can carry
+// host and user names from the connection string.
+}).catch(e => { console.error("FATAL: db init failed:", String((e && (e.code || e.name)) || "error")); process.exit(1); });

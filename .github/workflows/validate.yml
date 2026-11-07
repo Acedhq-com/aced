@@ -58,3 +58,8 @@ jobs:
           node aced-account.test.js
           node server/sync-auth-guards.test.js
           cd server && npm test
+      - name: Test auth, session, token storage, logging and database TLS hardening
+        run: |
+          node server/auth-flow.test.js
+          node server/db-tls.test.js
+          node aced-account-session.test.js
