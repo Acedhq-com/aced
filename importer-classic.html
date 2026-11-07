@@ -140,6 +140,9 @@
   /* Scoped import/review controls and persistent source-recovery feedback. */
   .flow input,.flow textarea{box-sizing:border-box;min-width:0;max-width:100%}
   .flow button,.flow .qstem,.flow .qopt,.flow .opt{min-height:44px}
+  .flow .opt{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:8px;min-width:0}
+  .flow .opt input[type=radio]{box-sizing:border-box;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;padding:0}
+  .flow .opt .qopt{box-sizing:border-box;width:100%;min-width:0}
   .flow button{min-width:44px}
   .flow button:focus-visible,.flow input:focus-visible,.flow textarea:focus-visible{outline:2px solid #5cffea;outline-offset:2px}
   #uStatus,#pvMeta,#classic-review{color:#d8f5d8;overflow-wrap:anywhere}

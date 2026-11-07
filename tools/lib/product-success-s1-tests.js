@@ -415,6 +415,24 @@ async function run(options={}) {
     const before=f.api.draft.length;await f.ensure("qlist").children.at(-1).fixture.del.fire("click");assert.equal(f.api.draft.length,before-1);
     f.context.ACEDLibrary.isPersistent=()=>false;await f.ensure("playNow").fire("click");assert.equal(f.navigations.length,0);assert.equal(f.ensure("pasteBox").value,pairText);assert.equal(f.api.draft[0].answer,1);
   });
+  await test("classic: correct-choice target has its own 44px box and preserves separate edit semantics",async()=>{
+    const html=read("importer-classic.html"),selector="\n  .flow .opt input[type=radio]{",parts=html.split(selector);
+    assert.equal(parts.length,2,"owned radio target rule must be unique");
+    const rule=parts[1].split("}")[0];
+    for(const property of ["box-sizing:border-box","width:44px","height:44px","min-width:44px","min-height:44px","margin:0","padding:0"])assert.ok(rule.includes(property));
+    assert.ok(html.includes("\n  .flow .opt{display:grid;grid-template-columns:44px minmax(0,1fr)"));
+    assert.ok(html.includes("\n  .flow .opt .qopt{box-sizing:border-box;width:100%;min-width:0"));
+    const f=classic(read);await f.change(inputFile("fixture.txt",pairText));await tick();await f.build();
+    const card=f.ensure("qlist").children[0],before=f.api.draft[0],stem=before.q,choices=JSON.stringify(before.choices),selected=(before.answer+1)%before.choices.length;
+    assert.equal(card.innerHTML.split('aria-label="Mark choice ').length-1,before.choices.length);
+    assert.equal(card.innerHTML.split('checked data-j="').length-1,1);
+    await card.fixture.radios[selected].fire("change");assert.equal(f.api.draft[0].answer,selected);
+    assert.equal(f.api.draft[0].q,stem);assert.equal(JSON.stringify(f.api.draft[0].choices),choices);
+    card.fixture.choices[0].value="Edited synthetic choice";await card.fixture.choices[0].fire("input");
+    assert.equal(f.api.draft[0].choices[0],"Edited synthetic choice");assert.equal(f.api.draft[0].answer,selected);
+    assert.equal(f.navigations.length,0);
+    // The rule and real handler semantics are checked here; native hit testing is separate.
+  });
   await test("classic: malformed PDF item/width/rotation rejects actual extraction without partial Build",async()=>{
     for(const bad of [{...item("first",50),width:NaN},{...item("first",50),width:-1},{...item("first",50),transform:[1,0,0.01,1,50,700]},{...item("first",50),str:17},null]){
       const f=classic(read);f.pdf([[item("alpha:"),bad]]);await f.change(inputFile("fixture.pdf",""));await tick();assert.equal(f.ensure("uBuild").disabled,true);assert.equal(f.api.draft.length,0);assert.match(f.ensure("uStatus").textContent,/could not be read/);
