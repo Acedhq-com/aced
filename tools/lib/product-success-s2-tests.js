@@ -118,6 +118,11 @@ async function run(options={}){
     for(const bg of backgrounds){assert.ok(html.includes(bg));assert.ok(contrast(color(labels),bg)>=4.5);}
     const actions=rule(".sidebar #runInfoBtn,.actions #play,.actions #discard,#modal button.act.play,#modal button.act.disc");assert.ok(actions.includes("text-shadow:none!important"));
     for(const name of ["b-blue","b-red","red"]){const bg=html.match(new RegExp("--"+name+":(#[0-9a-f]{6});","i"))?.[1];assert.ok(bg);assert.ok(contrast(color(actions),bg)>=4.5);}
+    const secondary=rule(".sidebar .readout .ro-hint,.sidebar .readout .ro-eq,.sidebar .readout .ro-prev,.cardtip:where(#cardTip) .ctcat");assert.equal(color(secondary),"#d8f5d8");
+    for(const bg of backgrounds)assert.ok(contrast(color(secondary),bg)>=4.5);
+    const readout=rule(".sidebar .readout .ro-chips,.sidebar .readout .ro-mult");assert.ok(readout.includes("color:"+color(readout)+"!important"));assert.ok(readout.includes("text-shadow:none!important"));
+    for(const name of ["b-blue","b-red"]){const bg=html.match(new RegExp("--"+name+":(#[0-9a-f]{6});","i"))?.[1];assert.ok(bg);assert.ok(contrast(color(readout),bg)>=4.5);}
+    // :where keeps the tip ID owned without outranking existing subject-category colors.
     // Known source palette arithmetic is not a computed-style/native contrast measurement.
   });
   await test("accessibility source: owned topic toggle and selected modal controls retain targets and focus",()=>{
